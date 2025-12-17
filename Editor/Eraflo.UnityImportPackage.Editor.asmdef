@@ -2,7 +2,10 @@
     "name": "Eraflo.UnityImportPackage.Editor",
     "rootNamespace": "Eraflo.UnityImportPackage.Editor",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.UnityImportPackage.Runtime",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [
         "Editor"
