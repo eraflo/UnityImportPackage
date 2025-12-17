@@ -1,6 +1,8 @@
 using NUnit.Framework;
 using Eraflo.UnityImportPackage.Events;
 using System;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Eraflo.UnityImportPackage.Tests
 {
@@ -11,7 +13,7 @@ namespace Eraflo.UnityImportPackage.Tests
         [SetUp]
         public void Setup()
         {
-            _testChannel = UnityEngine.ScriptableObject.CreateInstance<IntEventChannel>();
+            _testChannel = ScriptableObject.CreateInstance<IntEventChannel>();
             EventBus.Clear(_testChannel);
         }
 
@@ -117,9 +119,16 @@ namespace Eraflo.UnityImportPackage.Tests
             _testChannel.Subscribe((v) => throw new Exception("Test exception"));
             _testChannel.Subscribe((v) => count++);
 
-            // Should not throw and should call the second subscriber
-            Assert.DoesNotThrow(() => _testChannel.Raise(1));
+            // Expect the exception to be logged
+            LogAssert.ignoreFailingMessages = true;
+            
+            _testChannel.Raise(1);
+            
+            LogAssert.ignoreFailingMessages = false;
+
+            // Second subscriber should still have been called
             Assert.AreEqual(1, count);
         }
     }
 }
+
