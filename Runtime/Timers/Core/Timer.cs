@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Eraflo.UnityImportPackage.Easing;
 
 namespace Eraflo.UnityImportPackage.Timers
 {
@@ -43,8 +44,21 @@ namespace Eraflo.UnityImportPackage.Timers
         
         /// <summary>
         /// Progress of the timer from 0 to 1 (based on initial time).
+        /// For CountdownTimer, this goes from 1 to 0.
         /// </summary>
         public float Progress => initialTime > 0 ? Mathf.Clamp01(CurrentTime / initialTime) : 0f;
+
+        /// <summary>
+        /// Gets the completion progress (0 to 1) with the specified easing function applied.
+        /// Useful for animating values based on the timer's progress.
+        /// </summary>
+        /// <param name="easing">The easing curve to apply.</param>
+        /// <returns>A value between 0 and 1 (or outside for Elastic/Back).</returns>
+        public float GetProgress(EasingType easing)
+        {
+            float t = 1f - Progress;
+            return Easing.Evaluate(t, easing);
+        }
 
         /// <summary>
         /// Fired when the timer starts.

@@ -18,6 +18,7 @@ A high-performance, extensible timer system that integrates directly into Unity'
 - [Timer Pooling](#timer-pooling)
 - [Timer Chaining](#timer-chaining)
 - [Timer Groups](#timer-groups)
+- [Easing Functions](#easing-functions)
 - [Thread Safety](#thread-safety)
 - [Network Synchronization](#network-synchronization)
 - [Advanced Usage](#advanced-usage)
@@ -371,6 +372,17 @@ TimerGroups.ResumeAll();
 group.Clear();              // Remove all timers from group
 group.Dispose();            // Dispose group only
 group.Dispose(true);        // Dispose group AND all timers in it
+```
+
+---
+
+## Easing Functions
+
+Timers support easing functions for non-linear progress. The easing library is a standalone system detailed in [Easing Functions](Easing.md).
+
+```csharp
+// Get progress with easing applied
+float t = timer.GetProgress(EasingType.QuadInOut);
 ```
 
 ---
