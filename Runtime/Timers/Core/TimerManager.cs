@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace Eraflo.UnityImportPackage.Timers
 {
@@ -38,6 +39,10 @@ namespace Eraflo.UnityImportPackage.Timers
         private static readonly object _lockObject = new object();
         
         private static bool _isUpdating;
+
+        // Profiler markers for performance tracking
+        private static readonly ProfilerMarker _updateMarker = new ProfilerMarker("TimerManager.Update");
+        private static readonly ProfilerMarker _tickMarker = new ProfilerMarker("Timer.Tick");
 
         /// <summary>
         /// The current thread safety mode.
@@ -252,13 +257,16 @@ namespace Eraflo.UnityImportPackage.Timers
         /// </summary>
         internal static void UpdateTimers()
         {
-            if (IsThreadSafe)
+            using (_updateMarker.Auto())
             {
-                UpdateTimersThreadSafe();
-            }
-            else
-            {
-                UpdateTimersSingleThread();
+                if (IsThreadSafe)
+                {
+                    UpdateTimersThreadSafe();
+                }
+                else
+                {
+                    UpdateTimersSingleThread();
+                }
             }
         }
 
