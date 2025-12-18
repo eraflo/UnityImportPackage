@@ -1,79 +1,57 @@
-using System;
-
 namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
-    /// A timer that fires a tick event at a specified frequency (N times per second).
+    /// Frequency timer - ticks N times per second.
     /// </summary>
-    public class FrequencyTimer : Timer
+    public struct FrequencyTimer : ITimer, ISupportsIndefiniteCallbacks
     {
+        private float _accumulator;
         private float _tickInterval;
-        private float _timeSinceLastTick;
+        private float _timeScale;
+        private bool _isRunning;
+        private bool _isFinished;
+        private bool _useUnscaledTime;
+        private int _ticksThisFrame;
 
-        /// <summary>
-        /// The number of ticks per second.
-        /// </summary>
-        public int TicksPerSecond { get; private set; }
+        public float CurrentTime { get => _accumulator; set { if (_tickInterval == 0f && value > 0f) _tickInterval = 1f / value; _accumulator = 0f; } }
+        public float InitialTime => _tickInterval;
+        public bool IsRunning { get => _isRunning; set => _isRunning = value; }
+        public bool IsFinished { get => _isFinished; set => _isFinished = value; }
+        public bool UseUnscaledTime => _useUnscaledTime;
+        public float TimeScale { get => _timeScale; set => _timeScale = value; }
 
-        /// <summary>
-        /// The total number of ticks that have occurred since the timer started.
-        /// </summary>
-        public int TickCount { get; private set; }
+        /// <summary>Number of ticks that occurred this frame.</summary>
+        public int TicksThisFrame => _ticksThisFrame;
 
-        /// <summary>
-        /// Fired each time the timer ticks at the specified frequency.
-        /// </summary>
-        public event Action OnTick;
+        /// <summary>Ticks per second.</summary>
+        public float TicksPerSecond => _tickInterval > 0 ? 1f / _tickInterval : 0f;
 
-        /// <summary>
-        /// Creates a new frequency timer that ticks at the specified rate.
-        /// </summary>
-        /// <param name="ticksPerSecond">How many times per second to tick.</param>
-        public FrequencyTimer(int ticksPerSecond) : base(0f)
+        public void Tick(float deltaTime)
         {
-            SetTicksPerSecond(ticksPerSecond);
-        }
-
-        /// <summary>
-        /// Frequency timers never finish automatically.
-        /// </summary>
-        public override bool IsFinished => false;
-
-        /// <summary>
-        /// Changes the tick frequency.
-        /// </summary>
-        /// <param name="ticksPerSecond">New ticks per second value.</param>
-        public void SetTicksPerSecond(int ticksPerSecond)
-        {
-            TicksPerSecond = ticksPerSecond > 0 ? ticksPerSecond : 1;
-            _tickInterval = 1f / TicksPerSecond;
-        }
-
-        /// <summary>
-        /// Accumulates time and fires OnTick at the specified frequency.
-        /// </summary>
-        public override void Tick(float deltaTime)
-        {
-            CurrentTime += deltaTime;
-            _timeSinceLastTick += deltaTime;
-
-            // Fire ticks for accumulated time
-            while (_timeSinceLastTick >= _tickInterval)
+            _ticksThisFrame = 0;
+            _accumulator += deltaTime;
+            
+            while (_accumulator >= _tickInterval && _tickInterval > 0)
             {
-                _timeSinceLastTick -= _tickInterval;
-                TickCount++;
-                OnTick?.Invoke();
+                _accumulator -= _tickInterval;
+                _ticksThisFrame++;
             }
         }
 
-        /// <summary>
-        /// Resets the timer and tick count.
-        /// </summary>
-        public override void Reset()
+        public void Reset()
         {
-            base.Reset();
-            _timeSinceLastTick = 0f;
-            TickCount = 0;
+            _accumulator = 0f;
+            _ticksThisFrame = 0;
+            _isRunning = true;
+        }
+
+        public void CollectCallbacks(ICallbackCollector collector)
+        {
+            // Fire OnTick for each frequency tick (with interval as float parameter)
+            for (int i = 0; i < _ticksThisFrame; i++)
+            {
+                collector.Trigger<OnTick, float>(_tickInterval);
+            }
         }
     }
 }

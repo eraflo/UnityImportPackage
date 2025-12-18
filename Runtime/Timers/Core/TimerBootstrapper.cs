@@ -27,9 +27,6 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             if (_initialized) return;
 
-            // Capture main thread ID
-            TimerManager.MainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
-
             var currentLoop = PlayerLoop.GetCurrentPlayerLoop();
             
             if (!InsertTimerUpdate(ref currentLoop))
@@ -41,8 +38,8 @@ namespace Eraflo.UnityImportPackage.Timers
             PlayerLoop.SetPlayerLoop(currentLoop);
             _initialized = true;
 
-            // Initialize timer pool from settings
-            InitializeTimerPool();
+            // Initialize the Timer system
+            Timer.Initialize();
 
             // Clean up on application quit
             Application.quitting += OnApplicationQuit;
@@ -54,150 +51,54 @@ namespace Eraflo.UnityImportPackage.Timers
         }
 
         /// <summary>
-        /// Initializes the timer pool using PackageSettings configuration.
-        /// Uses reflection to discover all Timer types.
-        /// </summary>
-        private static void InitializeTimerPool()
-        {
-            try
-            {
-                var settings = PackageSettings.Instance;
-                
-                // Set thread mode from settings
-                TimerManager.ThreadMode = (TimerThreadMode)(int)settings.ThreadMode;
-                
-                TimerPool.DefaultCapacity = settings.TimerPoolDefaultCapacity;
-                TimerPool.MaxCapacity = settings.TimerPoolMaxCapacity;
-
-                if (settings.EnableTimerPooling && settings.TimerPoolPrewarmCount > 0)
-                {
-                    PrewarmAllTimerTypes(settings.TimerPoolPrewarmCount, settings.EnableTimerDebugLogs);
-                }
-
-                if (settings.EnableTimerDebugLogs)
-                {
-                    Debug.Log($"[TimerBootstrapper] Initialized with ThreadMode={settings.ThreadMode}");
-                }
-
-                if (settings.EnableDebugOverlay)
-                {
-                    if (GameObject.FindObjectOfType<Debugging.TimerDebugger>() == null)
-                    {
-                        new GameObject("TimerDebugger").AddComponent<Debugging.TimerDebugger>();
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[TimerBootstrapper] Failed to initialize timer pool: {e.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Discovers all non-abstract Timer subclasses and prewarms them.
-        /// </summary>
-        private static void PrewarmAllTimerTypes(int count, bool debugLog)
-        {
-            var timerBaseType = typeof(Timer);
-            var prewarmedTypes = new System.Collections.Generic.List<string>();
-
-            // Search all loaded assemblies for Timer subclasses
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    foreach (var type in assembly.GetTypes())
-                    {
-                        // Skip abstract classes, interfaces, and the base Timer class
-                        if (type.IsAbstract || type.IsInterface || type == timerBaseType)
-                            continue;
-
-                        // Check if it's a Timer subclass
-                        if (!timerBaseType.IsAssignableFrom(type))
-                            continue;
-
-                        // Try to prewarm this timer type
-                        try
-                        {
-                            TimerPool.Prewarm(type, count);
-                            prewarmedTypes.Add(type.Name);
-                        }
-                        catch
-                        {
-                            // Skip types that can't be instantiated
-                        }
-                    }
-                }
-                catch
-                {
-                    // Skip assemblies that can't be reflected
-                }
-            }
-
-            if (debugLog && prewarmedTypes.Count > 0)
-            {
-                Debug.Log($"[TimerPool] Prewarmed {count} timers for: {string.Join(", ", prewarmedTypes)}");
-            }
-        }
-
-        /// <summary>
-        /// Inserts the timer update system after Unity's Update phase.
+        /// Inserts the timer update into the Player Loop after the Update phase.
         /// </summary>
         private static bool InsertTimerUpdate(ref PlayerLoopSystem loop)
         {
-            var timerSystem = new PlayerLoopSystem
-            {
-                type = typeof(TimerUpdate),
-                updateDelegate = TimerManager.UpdateTimers
-            };
-
-            // Find and modify the Update subsystem
             for (int i = 0; i < loop.subSystemList.Length; i++)
             {
                 if (loop.subSystemList[i].type == typeof(Update))
                 {
                     var updateSystem = loop.subSystemList[i];
-                    var subsystems = updateSystem.subSystemList;
-                    
-                    // Create new array with space for timer update
+                    var subsystems = updateSystem.subSystemList ?? Array.Empty<PlayerLoopSystem>();
+
+                    // Check if already inserted
+                    foreach (var sub in subsystems)
+                    {
+                        if (sub.type == typeof(TimerUpdate)) return true;
+                    }
+
+                    // Insert our update
                     var newSubsystems = new PlayerLoopSystem[subsystems.Length + 1];
-                    
-                    // Find ScriptRunBehaviourUpdate and insert after it
-                    int insertIndex = -1;
-                    for (int j = 0; j < subsystems.Length; j++)
+                    Array.Copy(subsystems, newSubsystems, subsystems.Length);
+                    newSubsystems[subsystems.Length] = new PlayerLoopSystem
                     {
-                        newSubsystems[j] = subsystems[j];
-                        if (subsystems[j].type == typeof(Update.ScriptRunBehaviourUpdate))
-                        {
-                            insertIndex = j + 1;
-                        }
-                    }
-
-                    if (insertIndex == -1)
-                    {
-                        // Fallback: add at the end
-                        insertIndex = subsystems.Length;
-                    }
-
-                    // Shift elements and insert timer system
-                    for (int j = newSubsystems.Length - 1; j > insertIndex; j--)
-                    {
-                        newSubsystems[j] = newSubsystems[j - 1];
-                    }
-                    newSubsystems[insertIndex] = timerSystem;
+                        type = typeof(TimerUpdate),
+                        updateDelegate = OnTimerUpdate
+                    };
 
                     updateSystem.subSystemList = newSubsystems;
                     loop.subSystemList[i] = updateSystem;
                     return true;
                 }
             }
-
             return false;
         }
 
+        /// <summary>
+        /// Called every frame by the Player Loop.
+        /// </summary>
+        private static void OnTimerUpdate()
+        {
+            Timer.Update();
+        }
+
+        /// <summary>
+        /// Cleans up when the application quits.
+        /// </summary>
         private static void OnApplicationQuit()
         {
-            TimerManager.Clear();
+            Timer.Shutdown();
             _initialized = false;
         }
 
@@ -206,7 +107,7 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
             {
-                TimerManager.Clear();
+                Timer.Shutdown();
                 _initialized = false;
             }
         }

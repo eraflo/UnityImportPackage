@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using Eraflo.UnityImportPackage.Timers;
 
 namespace Eraflo.UnityImportPackage.Editor
 {
@@ -14,14 +15,10 @@ namespace Eraflo.UnityImportPackage.Editor
         private SerializedProperty _threadMode;
         private SerializedProperty _enableTimerDebugLogs;
         private SerializedProperty _enableDebugOverlay;
-        private SerializedProperty _enableTimerPooling;
-        private SerializedProperty _timerPoolDefaultCapacity;
-        private SerializedProperty _timerPoolMaxCapacity;
-        private SerializedProperty _timerPoolPrewarmCount;
+        private SerializedProperty _useBurstTimers;
 
         private bool _showNetworkSettings = true;
         private bool _showTimerSettings = true;
-        private bool _showPoolSettings = true;
 
         private void OnEnable()
         {
@@ -30,10 +27,7 @@ namespace Eraflo.UnityImportPackage.Editor
             _threadMode = serializedObject.FindProperty("_threadMode");
             _enableTimerDebugLogs = serializedObject.FindProperty("_enableTimerDebugLogs");
             _enableDebugOverlay = serializedObject.FindProperty("_enableDebugOverlay");
-            _enableTimerPooling = serializedObject.FindProperty("_enableTimerPooling");
-            _timerPoolDefaultCapacity = serializedObject.FindProperty("_timerPoolDefaultCapacity");
-            _timerPoolMaxCapacity = serializedObject.FindProperty("_timerPoolMaxCapacity");
-            _timerPoolPrewarmCount = serializedObject.FindProperty("_timerPoolPrewarmCount");
+            _useBurstTimers = serializedObject.FindProperty("_useBurstTimers");
         }
 
         public override void OnInspectorGUI()
@@ -72,108 +66,33 @@ namespace Eraflo.UnityImportPackage.Editor
             if (_showTimerSettings)
             {
                 EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(_useBurstTimers, new GUIContent("Use Optimized Backend", 
+                    "Uses array-based backend for better performance"));
                 EditorGUILayout.PropertyField(_enableTimerDebugLogs, new GUIContent("Debug Logs"));
-                EditorGUILayout.PropertyField(_enableDebugOverlay, new GUIContent("Debug Overlay", "Show runtime overlay with active timers"));
-                EditorGUI.indentLevel--;
-            }
-            EditorGUILayout.EndFoldoutHeaderGroup();
+                EditorGUILayout.PropertyField(_enableDebugOverlay, new GUIContent("Debug Overlay", 
+                    "Show runtime overlay with active timers"));
 
-            EditorGUILayout.Space(5);
-
-            // Timer Pool Settings
-            _showPoolSettings = EditorGUILayout.BeginFoldoutHeaderGroup(_showPoolSettings, "Timer Pool");
-            if (_showPoolSettings)
-            {
-                EditorGUI.indentLevel++;
-                
-                EditorGUILayout.PropertyField(_enableTimerPooling, new GUIContent("Enable Pooling"));
-                
-                using (new EditorGUI.DisabledScope(!_enableTimerPooling.boolValue))
+                // Timer stats in play mode
+                if (Application.isPlaying)
                 {
-                    EditorGUILayout.Space(3);
-                    
-                    EditorGUILayout.PropertyField(_timerPoolDefaultCapacity, 
-                        new GUIContent("Default Capacity", "Initial pool size per timer type"));
-                    
-                    EditorGUILayout.PropertyField(_timerPoolMaxCapacity, 
-                        new GUIContent("Max Capacity", "Maximum pooled timers per type"));
-                    
-                    EditorGUILayout.PropertyField(_timerPoolPrewarmCount, 
-                        new GUIContent("Prewarm Count", "Timers to prewarm on startup (0 = disabled)"));
-
                     EditorGUILayout.Space(5);
-                    
-                    // Pool stats in play mode
-                    if (Application.isPlaying)
-                    {
-                        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                        EditorGUILayout.LabelField("Pool Status", EditorStyles.boldLabel);
-                        
-                        var totalPooled = Timers.TimerPool.TotalPooledCount;
-                        EditorGUILayout.LabelField("Total Pooled: " + totalPooled);
-                        
-                        // Use reflection to display all timer types
-                        DisplayPoolSizes();
-                        
-                        EditorGUILayout.EndVertical();
+                    EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                    EditorGUILayout.LabelField("Timer Status", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField($"Active Timers: {Timer.Count}");
+                    EditorGUILayout.LabelField($"Backend: {(Timer.IsBurstMode ? "Optimized" : "Standard")}");
+                    EditorGUILayout.EndVertical();
 
-                        if (GUILayout.Button("Clear Pool"))
-                        {
-                            Timers.TimerPool.Clear();
-                        }
+                    if (GUILayout.Button("Clear All Timers"))
+                    {
+                        Timer.Clear();
                     }
                 }
-                
+
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
-
-            EditorGUILayout.Space(10);
-
-            // Validation
-            if (_timerPoolDefaultCapacity.intValue > _timerPoolMaxCapacity.intValue)
-            {
-                EditorGUILayout.HelpBox("Default Capacity cannot exceed Max Capacity", MessageType.Warning);
-            }
 
             serializedObject.ApplyModifiedProperties();
-        }
-
-        /// <summary>
-        /// Displays pool sizes for all Timer types using reflection.
-        /// </summary>
-        private void DisplayPoolSizes()
-        {
-            var timerBaseType = typeof(Timers.Timer);
-            var getPoolSizeMethod = typeof(Timers.TimerPool).GetMethod("GetPoolSize");
-
-            foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    foreach (var type in assembly.GetTypes())
-                    {
-                        if (type.IsAbstract || type.IsInterface || type == timerBaseType)
-                            continue;
-
-                        if (!timerBaseType.IsAssignableFrom(type))
-                            continue;
-
-                        // Call GetPoolSize<T>() via reflection
-                        var genericMethod = getPoolSizeMethod.MakeGenericMethod(type);
-                        var count = (int)genericMethod.Invoke(null, null);
-                        
-                        if (count > 0)
-                        {
-                            EditorGUILayout.LabelField(type.Name + ": " + count);
-                        }
-                    }
-                }
-                catch
-                {
-                    // Skip assemblies that can't be reflected
-                }
-            }
         }
     }
 }

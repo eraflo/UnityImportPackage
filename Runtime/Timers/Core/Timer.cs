@@ -1,161 +1,171 @@
 using System;
 using UnityEngine;
-using Eraflo.UnityImportPackage.EasingSystem;
+using Eraflo.UnityImportPackage.Timers.Backends;
 
 namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
-    /// Abstract base class for all timers. Timers automatically register themselves
-    /// with the TimerManager and are updated via the Player Loop system.
+    /// Main static API for the Timer system.
+    /// Use Timer.Create&lt;T&gt;() to create any timer type.
+    /// Backend (Standard/Burst) is selected automatically based on PackageSettings.
     /// </summary>
-    public abstract class Timer : IDisposable
+    public static partial class Timer
     {
-        /// <summary>
-        /// The initial time value used when the timer was created or last reset.
-        /// </summary>
-        protected float initialTime;
-        
-        /// <summary>
-        /// The current time value of the timer.
-        /// </summary>
-        public float CurrentTime { get; protected set; }
-        
-        /// <summary>
-        /// Whether the timer is currently running.
-        /// </summary>
-        public bool IsRunning { get; private set; }
-        
-        /// <summary>
-        /// Whether the timer has finished (implementation-specific).
-        /// </summary>
-        public abstract bool IsFinished { get; }
-        
-        /// <summary>
-        /// Whether to use unscaled time (ignores Time.timeScale).
-        /// </summary>
-        public bool UseUnscaledTime { get; set; }
-        
-        /// <summary>
-        /// Individual time scale multiplier for this timer.
-        /// Default is 1.0. Values > 1 speed up, values < 1 slow down.
-        /// Set to 0 to pause, negative values reverse the timer.
-        /// </summary>
-        public float TimeScale { get; set; } = 1f;
-        
-        /// <summary>
-        /// Progress of the timer from 0 to 1 (based on initial time).
-        /// For CountdownTimer, this goes from 1 to 0.
-        /// </summary>
-        public float Progress => initialTime > 0 ? Mathf.Clamp01(CurrentTime / initialTime) : 0f;
+        private static ITimerBackend _backend;
+        private static bool _initialized;
+
+        #region Properties
 
         /// <summary>
-        /// Gets the completion progress (0 to 1) with the specified easing function applied.
-        /// Useful for animating values based on the timer's progress.
+        /// Whether Burst mode is active.
         /// </summary>
-        /// <param name="easing">The easing curve to apply.</param>
-        /// <returns>A value between 0 and 1 (or outside for Elastic/Back).</returns>
-        public float GetProgress(EasingType easing)
+        public static bool IsBurstMode => PackageSettings.Instance.UseBurstTimers;
+
+        /// <summary>
+        /// Number of active timers.
+        /// </summary>
+        public static int Count => _backend?.Count ?? 0;
+
+        #endregion
+
+        #region Internal Lifecycle
+
+        /// <summary>
+        /// Initializes the timer system. Called automatically by TimerBootstrapper.
+        /// </summary>
+        internal static void Initialize()
         {
-            float t = 1f - Progress;
-            return Easing.Evaluate(t, easing);
+            if (_initialized) return;
+
+            if (IsBurstMode)
+            {
+                _backend = new BurstBackend();
+                Debug.Log("[Timer] Initialized with Burst backend");
+            }
+            else
+            {
+                _backend = new StandardBackend();
+                Debug.Log("[Timer] Initialized with Standard backend");
+            }
+
+            _initialized = true;
         }
 
         /// <summary>
-        /// Fired when the timer starts.
+        /// Shuts down the timer system.
         /// </summary>
-        public event Action OnTimerStart;
-        
-        /// <summary>
-        /// Fired when the timer stops (either completed or manually stopped).
-        /// </summary>
-        public event Action OnTimerStop;
-
-        /// <summary>
-        /// Creates a new timer with the specified initial time.
-        /// </summary>
-        /// <param name="initialTime">The starting time value for the timer.</param>
-        protected Timer(float initialTime)
+        internal static void Shutdown()
         {
-            this.initialTime = initialTime;
-            CurrentTime = initialTime;
-            TimerManager.RegisterTimer(this);
+            _backend?.Dispose();
+            _backend = null;
+            _initialized = false;
+            TimerCallbacks.Clear();
         }
 
         /// <summary>
-        /// Starts or resumes the timer.
+        /// Updates all timers. Called automatically by PlayerLoop.
         /// </summary>
-        public void Start()
+        internal static void Update()
         {
-            if (IsRunning) return;
-            
-            IsRunning = true;
-            OnTimerStart?.Invoke();
+            _backend?.Update(Time.deltaTime, Time.unscaledDeltaTime);
+        }
+
+        private static void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                Initialize();
+            }
+        }
+
+        #endregion
+
+        #region Create
+
+        /// <summary>
+        /// Creates a timer of the specified type.
+        /// </summary>
+        /// <typeparam name="T">Timer type implementing ITimer.</typeparam>
+        /// <param name="duration">Duration in seconds.</param>
+        /// <returns>Handle to the created timer.</returns>
+        public static TimerHandle Create<T>(float duration) where T : struct, ITimer
+        {
+            EnsureInitialized();
+            return _backend.Create<T>(TimerConfig.FromDuration(duration));
         }
 
         /// <summary>
-        /// Stops the timer completely.
+        /// Creates a timer of the specified type with full configuration.
         /// </summary>
-        public void Stop()
+        /// <typeparam name="T">Timer type implementing ITimer.</typeparam>
+        /// <param name="config">Timer configuration.</param>
+        /// <returns>Handle to the created timer.</returns>
+        public static TimerHandle Create<T>(TimerConfig config) where T : struct, ITimer
         {
-            if (!IsRunning) return;
-            
-            IsRunning = false;
-            OnTimerStop?.Invoke();
+            EnsureInitialized();
+            return _backend.Create<T>(config);
         }
 
         /// <summary>
-        /// Pauses the timer (can be resumed with Start).
+        /// Creates a delay that executes a callback after the specified time.
         /// </summary>
-        public void Pause()
+        /// <param name="delay">Delay in seconds.</param>
+        /// <param name="onComplete">Callback to execute.</param>
+        /// <param name="useUnscaledTime">If true, ignores Time.timeScale.</param>
+        /// <returns>Handle to the delay timer.</returns>
+        public static TimerHandle Delay(float delay, Action onComplete, bool useUnscaledTime = false)
         {
-            IsRunning = false;
+            var handle = Create<DelayTimer>(TimerConfig.Create(delay, useUnscaledTime: useUnscaledTime));
+            On<OnComplete>(handle, onComplete);
+            return handle;
         }
 
-        /// <summary>
-        /// Resumes a paused timer.
-        /// </summary>
-        public void Resume() => Start();
+        #endregion
 
-        /// <summary>
-        /// Resets the timer to its initial time.
-        /// </summary>
-        public virtual void Reset()
-        {
-            CurrentTime = initialTime;
-        }
+        #region Control
 
-        /// <summary>
-        /// Resets the timer with a new initial time.
-        /// </summary>
-        /// <param name="newTime">The new initial time value.</param>
-        public virtual void Reset(float newTime)
-        {
-            initialTime = newTime;
-            Reset();
-        }
+        /// <summary>Pauses a timer.</summary>
+        public static void Pause(TimerHandle handle) => _backend?.Pause(handle);
 
-        /// <summary>
-        /// Updates the timer. Called automatically by the TimerManager each frame.
-        /// </summary>
-        /// <param name="deltaTime">Time elapsed since last tick.</param>
-        public abstract void Tick(float deltaTime);
+        /// <summary>Resumes a paused timer.</summary>
+        public static void Resume(TimerHandle handle) => _backend?.Resume(handle);
 
-        /// <summary>
-        /// Disposes of the timer, unregistering it from the TimerManager.
-        /// Always call Dispose when you're done with a timer to prevent memory leaks.
-        /// </summary>
-        public void Dispose()
-        {
-            TimerManager.UnregisterTimer(this);
-            GC.SuppressFinalize(this);
-        }
+        /// <summary>Cancels and removes a timer.</summary>
+        public static void Cancel(TimerHandle handle) => _backend?.Cancel(handle);
 
-        /// <summary>
-        /// Destructor to ensure timer is unregistered if Dispose wasn't called.
-        /// </summary>
-        ~Timer()
-        {
-            Dispose();
-        }
+        /// <summary>Resets a timer to its initial state.</summary>
+        public static void Reset(TimerHandle handle) => _backend?.Reset(handle);
+
+        /// <summary>Sets the time scale of a timer.</summary>
+        public static void SetTimeScale(TimerHandle handle, float scale) => _backend?.SetTimeScale(handle, scale);
+
+        #endregion
+
+        #region Query
+
+        /// <summary>Gets the current time of a timer.</summary>
+        public static float GetCurrentTime(TimerHandle handle) => _backend?.GetCurrentTime(handle) ?? 0f;
+
+        /// <summary>Gets the progress (0-1) of a timer.</summary>
+        public static float GetProgress(TimerHandle handle) => _backend?.GetProgress(handle) ?? 0f;
+
+        /// <summary>Checks if a timer has finished.</summary>
+        public static bool IsFinished(TimerHandle handle) => _backend?.IsFinished(handle) ?? true;
+
+        /// <summary>Checks if a timer is running.</summary>
+        public static bool IsRunning(TimerHandle handle) => _backend?.IsRunning(handle) ?? false;
+
+        #endregion
+
+        #region Utility
+
+        /// <summary>Clears all timers.</summary>
+        public static void Clear() => _backend?.Clear();
+
+        /// <summary>Gets debug info for all active timers.</summary>
+        public static System.Collections.Generic.List<TimerDebugInfo> GetActiveTimers() 
+            => _backend?.GetActiveTimers() ?? new System.Collections.Generic.List<TimerDebugInfo>();
+
+        #endregion
     }
 }

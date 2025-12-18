@@ -1,39 +1,37 @@
 namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
-    /// A timer that counts up from zero indefinitely (like a stopwatch).
+    /// Stopwatch timer - counts up from 0 indefinitely.
     /// </summary>
-    public class StopwatchTimer : Timer
+    public struct StopwatchTimer : ITimer, ISupportsIndefiniteCallbacks
     {
-        /// <summary>
-        /// Creates a new stopwatch timer starting from zero.
-        /// </summary>
-        public StopwatchTimer() : base(0f) { }
+        private float _currentTime;
+        private float _timeScale;
+        private bool _isRunning;
+        private bool _isFinished;
+        private bool _useUnscaledTime;
 
-        /// <summary>
-        /// Stopwatch timers never finish automatically.
-        /// </summary>
-        public override bool IsFinished => false;
+        public float CurrentTime { get => _currentTime; set => _currentTime = value; }
+        public float InitialTime => 0f;
+        public bool IsRunning { get => _isRunning; set => _isRunning = value; }
+        public bool IsFinished { get => _isFinished; set => _isFinished = value; }
+        public bool UseUnscaledTime => _useUnscaledTime;
+        public float TimeScale { get => _timeScale; set => _timeScale = value; }
 
-        /// <summary>
-        /// Gets the elapsed time since the stopwatch started.
-        /// </summary>
-        public float ElapsedTime => CurrentTime;
-
-        /// <summary>
-        /// Increments the current time by deltaTime.
-        /// </summary>
-        public override void Tick(float deltaTime)
+        public void Tick(float deltaTime)
         {
-            CurrentTime += deltaTime;
+            _currentTime += deltaTime;
         }
 
-        /// <summary>
-        /// Resets the stopwatch to zero.
-        /// </summary>
-        public override void Reset()
+        public void Reset()
         {
-            CurrentTime = 0f;
+            _currentTime = 0f;
+            _isRunning = true;
+        }
+
+        public void CollectCallbacks(ICallbackCollector collector)
+        {
+            // Stopwatch has no automatic callbacks - it runs indefinitely
         }
     }
 }

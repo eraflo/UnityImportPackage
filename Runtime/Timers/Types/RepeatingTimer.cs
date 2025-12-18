@@ -1,139 +1,79 @@
-using System;
-
 namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
-    /// A timer that repeats a specified number of times or indefinitely.
-    /// Fires OnTick each time the interval completes.
+    /// Repeating timer - fires OnRepeat every interval, for a count or infinitely.
     /// </summary>
-    public class RepeatingTimer : Timer
+    public struct RepeatingTimer : ITimer, ISupportsRepeatingCallbacks
     {
-        private readonly float _interval;
+        private float _currentTime;
+        private float _interval;
+        private float _timeScale;
         private int _repeatCount;
         private int _currentRepeat;
-        private readonly bool _infinite;
+        private int _lastReportedRepeat;
+        private bool _isRunning;
+        private bool _isFinished;
+        private bool _useUnscaledTime;
+        private bool _isInfinite;
+        private bool _wasFinishedLastFrame;
 
-        /// <summary>
-        /// Fired each time the timer completes an interval.
-        /// </summary>
-        public event Action OnTick;
+        public float CurrentTime { get => _currentTime; set { _interval = _interval == 0 ? value : _interval; _currentTime = value; } }
+        public float InitialTime => _interval;
+        public bool IsRunning { get => _isRunning; set => _isRunning = value; }
+        public bool IsFinished { get => _isFinished; set => _isFinished = value; }
+        public bool UseUnscaledTime => _useUnscaledTime;
+        public float TimeScale { get => _timeScale; set => _timeScale = value; }
 
-        /// <summary>
-        /// Fired when all repeats are complete (not fired for infinite timers).
-        /// </summary>
-        public event Action OnComplete;
-
-        /// <summary>
-        /// The interval between ticks in seconds.
-        /// </summary>
-        public float Interval => _interval;
-
-        /// <summary>
-        /// The total number of repeats (0 = infinite).
-        /// </summary>
-        public int RepeatCount => _repeatCount;
-
-        /// <summary>
-        /// The current repeat number (1-based).
-        /// </summary>
+        /// <summary>Current repeat number (1-based).</summary>
         public int CurrentRepeat => _currentRepeat;
 
-        /// <summary>
-        /// How many repeats are remaining (0 for infinite timers).
-        /// </summary>
-        public int RemainingRepeats => _infinite ? int.MaxValue : _repeatCount - _currentRepeat;
+        /// <summary>Total repeat count (0 = infinite).</summary>
+        public int RepeatCount { get => _repeatCount; set { _repeatCount = value; _isInfinite = value <= 0; } }
 
-        /// <summary>
-        /// Whether this timer repeats indefinitely.
-        /// </summary>
-        public bool IsInfinite => _infinite;
-
-        /// <summary>
-        /// Returns true when all repeats are complete (never true for infinite timers).
-        /// </summary>
-        public override bool IsFinished => !_infinite && _currentRepeat >= _repeatCount;
-
-        /// <summary>
-        /// Creates a repeating timer.
-        /// </summary>
-        /// <param name="interval">Time in seconds between each tick.</param>
-        /// <param name="repeatCount">Number of times to repeat. Use 0 for infinite.</param>
-        public RepeatingTimer(float interval, int repeatCount = 0) : base(interval)
+        public void Tick(float deltaTime)
         {
-            _interval = interval;
-            _repeatCount = repeatCount;
-            _infinite = repeatCount <= 0;
-            _currentRepeat = 0;
-        }
-
-        /// <summary>
-        /// Updates the timer and fires OnTick when interval completes.
-        /// </summary>
-        public override void Tick(float deltaTime)
-        {
-            if (IsFinished) return;
-
-            CurrentTime -= deltaTime;
-
-            while (CurrentTime <= 0f && !IsFinished)
+            _wasFinishedLastFrame = _isFinished;
+            _currentTime -= deltaTime;
+            
+            if (_currentTime <= 0f)
             {
                 _currentRepeat++;
                 
-                try
+                if (!_isInfinite && _currentRepeat >= _repeatCount)
                 {
-                    OnTick?.Invoke();
-                }
-                catch (Exception e)
-                {
-                    UnityEngine.Debug.LogException(e);
-                }
-
-                if (IsFinished)
-                {
-                    try
-                    {
-                        OnComplete?.Invoke();
-                    }
-                    catch (Exception e)
-                    {
-                        UnityEngine.Debug.LogException(e);
-                    }
+                    _isFinished = true;
                 }
                 else
                 {
-                    // Reset for next interval (carry over remaining time)
-                    CurrentTime += _interval;
+                    _currentTime += _interval;
                 }
             }
         }
 
-        /// <summary>
-        /// Resets the timer to start from the beginning.
-        /// </summary>
-        public override void Reset()
+        public void Reset()
         {
-            CurrentTime = _interval;
+            _currentTime = _interval;
             _currentRepeat = 0;
+            _lastReportedRepeat = 0;
+            _isFinished = false;
+            _wasFinishedLastFrame = false;
+            _isRunning = true;
         }
 
-        /// <summary>
-        /// Resets with a new interval.
-        /// </summary>
-        /// <param name="newInterval">New interval in seconds.</param>
-        public override void Reset(float newInterval)
+        public void CollectCallbacks(ICallbackCollector collector)
         {
-            initialTime = newInterval;
-            CurrentTime = newInterval;
-            _currentRepeat = 0;
-        }
+            // Fire OnRepeat for each new repeat (with repeat count as int parameter)
+            if (_currentRepeat > _lastReportedRepeat)
+            {
+                collector.Trigger<OnRepeat, int>(_currentRepeat);
+                _lastReportedRepeat = _currentRepeat;
+            }
 
-        /// <summary>
-        /// Changes the number of repeats.
-        /// </summary>
-        /// <param name="count">New repeat count (0 = infinite).</param>
-        public void SetRepeatCount(int count)
-        {
-            _repeatCount = count;
+            // Fire OnComplete when finished
+            if (_isFinished && !_wasFinishedLastFrame)
+            {
+                collector.Trigger<OnComplete>();
+            }
         }
     }
 }

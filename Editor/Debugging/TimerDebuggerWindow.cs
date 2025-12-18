@@ -12,16 +12,16 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
     public class TimerDebuggerWindow : EditorWindow
     {
         private Vector2 _scrollPos;
-        private List<Timer> _timers = new List<Timer>();
         private bool _autoRefresh = true;
         private double _lastRefreshTime;
         private const double REFRESH_INTERVAL = 0.1; // 100ms
+        private List<TimerDebugInfo> _cachedTimers = new List<TimerDebugInfo>();
 
         [MenuItem("Tools/Unity Import Package/Timer Debugger")]
         public static void ShowWindow()
         {
             var window = GetWindow<TimerDebuggerWindow>("Timer Debugger");
-            window.minSize = new Vector2(300, 200);
+            window.minSize = new Vector2(350, 250);
         }
 
         private void OnEnable()
@@ -41,6 +41,7 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
             if (EditorApplication.timeSinceStartup - _lastRefreshTime > REFRESH_INTERVAL)
             {
                 _lastRefreshTime = EditorApplication.timeSinceStartup;
+                _cachedTimers = Timer.GetActiveTimers();
                 Repaint();
             }
         }
@@ -54,8 +55,6 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
                 EditorGUILayout.HelpBox("Enter Play Mode to see active timers.", MessageType.Info);
                 return;
             }
-
-            _timers = TimerManager.GetAllTimers();
 
             DrawStats();
             DrawTimerList();
@@ -71,18 +70,15 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
             
             if (Application.isPlaying)
             {
-                if (GUILayout.Button("Pause All", EditorStyles.toolbarButton))
+                if (GUILayout.Button("Clear All", EditorStyles.toolbarButton))
                 {
-                    foreach (var t in TimerManager.GetAllTimers()) t.Pause();
+                    Timer.Clear();
+                    _cachedTimers.Clear();
                 }
-                if (GUILayout.Button("Resume All", EditorStyles.toolbarButton))
-                {
-                    foreach (var t in TimerManager.GetAllTimers()) t.Resume();
-                }
-                if (GUILayout.Button("Clear", EditorStyles.toolbarButton))
-                {
-                    TimerManager.Clear();
-                }
+                
+                GUI.enabled = false;
+                GUILayout.Label(Timer.IsBurstMode ? "Burst" : "Standard", EditorStyles.toolbarButton);
+                GUI.enabled = true;
             }
             
             EditorGUILayout.EndHorizontal();
@@ -91,8 +87,8 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
         private void DrawStats()
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-            EditorGUILayout.LabelField($"Active Timers: {_timers.Count}", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField($"Pooled: {TimerPool.TotalPooledCount}");
+            EditorGUILayout.LabelField($"Active Timers: {_cachedTimers.Count}", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Backend: {(Timer.IsBurstMode ? "Burst" : "Standard")}");
             EditorGUILayout.EndHorizontal();
         }
 
@@ -100,47 +96,57 @@ namespace Eraflo.UnityImportPackage.Editor.Debugging
         {
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
-            foreach (var timer in _timers)
+            if (_cachedTimers.Count == 0)
             {
-                if (timer == null) continue;
-                DrawTimerEntry(timer);
+                EditorGUILayout.HelpBox("No active timers.", MessageType.Info);
+            }
+            else
+            {
+                foreach (var info in _cachedTimers)
+                {
+                    DrawTimerEntry(info);
+                }
             }
 
             EditorGUILayout.EndScrollView();
         }
 
-        private void DrawTimerEntry(Timer timer)
+        private void DrawTimerEntry(TimerDebugInfo info)
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
-            // Row 1: Icon + Type + State
+            // Row 1: Icon + Type + ID
             EditorGUILayout.BeginHorizontal();
             
             // Status icon
-            string icon = timer.IsRunning ? "▶" : (timer.IsFinished ? "⏹" : "⏸");
+            string icon = info.IsRunning ? "▶" : (info.IsFinished ? "⏹" : "⏸");
             var iconStyle = new GUIStyle(EditorStyles.label) { 
                 fontSize = 14,
-                normal = { textColor = timer.IsRunning ? Color.green : (timer.IsFinished ? Color.gray : Color.yellow) }
+                normal = { textColor = info.IsRunning ? Color.green : (info.IsFinished ? Color.gray : Color.yellow) }
             };
             GUILayout.Label(icon, iconStyle, GUILayout.Width(20));
             
             // Type name
-            EditorGUILayout.LabelField(timer.GetType().Name, EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(info.TypeName, EditorStyles.boldLabel, GUILayout.Width(120));
+            
+            // ID
+            EditorGUILayout.LabelField($"ID: {info.Id}", GUILayout.Width(60));
             
             GUILayout.FlexibleSpace();
             
             // Time scale badge
-            if (Mathf.Abs(timer.TimeScale - 1f) > 0.01f)
+            if (Mathf.Abs(info.TimeScale - 1f) > 0.01f)
             {
                 var badge = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = Color.cyan } };
-                GUILayout.Label($"x{timer.TimeScale:F1}", badge);
+                GUILayout.Label($"x{info.TimeScale:F1}", badge);
             }
             
             EditorGUILayout.EndHorizontal();
             
             // Row 2: Progress bar
             var rect = EditorGUILayout.GetControlRect(false, 16);
-            EditorGUI.ProgressBar(rect, timer.Progress, $"{timer.CurrentTime:F2}s / {timer.Progress:P0}");
+            float displayProgress = Mathf.Clamp01(info.Progress);
+            EditorGUI.ProgressBar(rect, displayProgress, $"{info.CurrentTime:F2}s / {displayProgress:P0}");
             
             EditorGUILayout.EndVertical();
         }

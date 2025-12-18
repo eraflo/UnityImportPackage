@@ -1,77 +1,50 @@
-using System;
-
 namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
-    /// A simple timer that executes an action after a delay and auto-disposes.
-    /// Use via TimerManager.Delay() for one-liner delayed actions.
+    /// Delay timer - one-shot countdown, fires OnComplete at end.
     /// </summary>
-    public class DelayTimer : Timer
+    public struct DelayTimer : ITimer, ISupportsOneShotCallbacks
     {
-        private readonly Action _onComplete;
-        private bool _hasCompleted;
+        private float _currentTime;
+        private float _initialTime;
+        private float _timeScale;
+        private bool _isRunning;
+        private bool _isFinished;
+        private bool _useUnscaledTime;
+        private bool _wasFinishedLastFrame;
 
-        /// <summary>
-        /// Creates a new delay timer.
-        /// </summary>
-        /// <param name="delay">Delay in seconds before executing the action.</param>
-        /// <param name="onComplete">Action to execute when the delay completes.</param>
-        /// <param name="useUnscaledTime">If true, ignores Time.timeScale.</param>
-        public DelayTimer(float delay, Action onComplete, bool useUnscaledTime = false) 
-            : base(delay)
+        public float CurrentTime { get => _currentTime; set { _initialTime = _initialTime == 0 ? value : _initialTime; _currentTime = value; } }
+        public float InitialTime => _initialTime;
+        public bool IsRunning { get => _isRunning; set => _isRunning = value; }
+        public bool IsFinished { get => _isFinished; set => _isFinished = value; }
+        public bool UseUnscaledTime => _useUnscaledTime;
+        public float TimeScale { get => _timeScale; set => _timeScale = value; }
+
+        public void Tick(float deltaTime)
         {
-            _onComplete = onComplete;
-            UseUnscaledTime = useUnscaledTime;
-            
-            // Auto-dispose and execute callback when timer stops
-            OnTimerStop += HandleComplete;
-        }
-
-        /// <summary>
-        /// Returns true when the delay has elapsed.
-        /// </summary>
-        public override bool IsFinished => CurrentTime <= 0f;
-
-        /// <summary>
-        /// Decrements the remaining time.
-        /// </summary>
-        public override void Tick(float deltaTime)
-        {
-            if (IsFinished) return;
-            
-            CurrentTime -= deltaTime;
-            
-            if (CurrentTime < 0f)
-                CurrentTime = 0f;
-        }
-
-        private void HandleComplete()
-        {
-            if (_hasCompleted) return;
-            _hasCompleted = true;
-            
-            try
+            _wasFinishedLastFrame = _isFinished;
+            _currentTime -= deltaTime;
+            if (_currentTime <= 0f)
             {
-                _onComplete?.Invoke();
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
-            finally
-            {
-                // Auto-dispose after completion
-                Dispose();
+                _currentTime = 0f;
+                _isFinished = true;
             }
         }
 
-        /// <summary>
-        /// Cancels the delay without executing the callback.
-        /// </summary>
-        public void Cancel()
+        public void Reset()
         {
-            _hasCompleted = true; // Prevent callback execution
-            Dispose();
+            _currentTime = _initialTime;
+            _isFinished = false;
+            _wasFinishedLastFrame = false;
+            _isRunning = true;
+        }
+
+        public void CollectCallbacks(ICallbackCollector collector)
+        {
+            if (_isFinished && !_wasFinishedLastFrame)
+            {
+                collector.Trigger<OnComplete>();
+            }
         }
     }
 }

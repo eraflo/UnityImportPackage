@@ -23,28 +23,14 @@ namespace Eraflo.UnityImportPackage
         [SerializeField] private bool _networkDebugMode = false;
 
         [Header("Timer System")]
-        [Tooltip("If enabled, log debug messages for timer events.")]
-        [SerializeField] private bool _enableDebugOverlay = false;
-        
-        /// <summary>
-        /// Whether to show the runtime debug overlay for timers.
-        /// </summary>
-        public bool EnableDebugOverlay => _enableDebugOverlay;
+        [Tooltip("Use optimized array-based backend for better performance with many timers.")]
+        [SerializeField] private bool _useBurstTimers = false;
 
+        [Tooltip("If enabled, log debug messages for timer events.")]
         [SerializeField] private bool _enableTimerDebugLogs = false;
 
-        [Header("Timer Pool")]
-        [Tooltip("Enable timer pooling to reduce garbage collection.")]
-        [SerializeField] private bool _enableTimerPooling = true;
-
-        [Tooltip("Default pool capacity per timer type.")]
-        [SerializeField] [Range(5, 50)] private int _timerPoolDefaultCapacity = 10;
-
-        [Tooltip("Maximum pool capacity per timer type.")]
-        [SerializeField] [Range(10, 200)] private int _timerPoolMaxCapacity = 50;
-
-        [Tooltip("Prewarm pools on startup with this many timers per type.")]
-        [SerializeField] [Range(0, 20)] private int _timerPoolPrewarmCount = 0;
+        [Tooltip("Show runtime debug overlay with active timers.")]
+        [SerializeField] private bool _enableDebugOverlay = false;
 
         /// <summary>
         /// Gets the singleton instance of the package settings.
@@ -83,29 +69,19 @@ namespace Eraflo.UnityImportPackage
         public PackageThreadMode ThreadMode => _threadMode;
 
         /// <summary>
+        /// Whether to use optimized backend for timer updates.
+        /// </summary>
+        public bool UseBurstTimers => _useBurstTimers;
+
+        /// <summary>
         /// Whether to log debug messages for timer events.
         /// </summary>
         public bool EnableTimerDebugLogs => _enableTimerDebugLogs;
 
         /// <summary>
-        /// Whether timer pooling is enabled.
+        /// Whether to show the runtime debug overlay for timers.
         /// </summary>
-        public bool EnableTimerPooling => _enableTimerPooling;
-
-        /// <summary>
-        /// Default pool capacity per timer type.
-        /// </summary>
-        public int TimerPoolDefaultCapacity => _timerPoolDefaultCapacity;
-
-        /// <summary>
-        /// Maximum pool capacity per timer type.
-        /// </summary>
-        public int TimerPoolMaxCapacity => _timerPoolMaxCapacity;
-
-        /// <summary>
-        /// Number of timers to prewarm per type on startup.
-        /// </summary>
-        public int TimerPoolPrewarmCount => _timerPoolPrewarmCount;
+        public bool EnableDebugOverlay => _enableDebugOverlay;
 
         /// <summary>
         /// Reloads the settings from Resources.

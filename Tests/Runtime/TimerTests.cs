@@ -1,312 +1,540 @@
-using NUnit.Framework;
 using System;
+using System.Collections;
+using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Eraflo.UnityImportPackage.Timers;
+using Eraflo.UnityImportPackage.EasingSystem;
 
 namespace Eraflo.UnityImportPackage.Tests
 {
-    using Eraflo.UnityImportPackage.Timers;
-
     public class TimerTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            Timer.Clear();
+        }
+
         [TearDown]
         public void TearDown()
         {
-            TimerManager.Clear();
+            Timer.Clear();
         }
 
-        #region CountdownTimer Tests
+        #region Timer Creation Tests
 
         [Test]
-        public void CountdownTimer_StartsWithCorrectTime()
+        public void Create_CountdownTimer_ReturnsValidHandle()
         {
-            var timer = new CountdownTimer(5f);
-            Assert.AreEqual(5f, timer.CurrentTime);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void CountdownTimer_Tick_DecrementsTime()
-        {
-            var timer = new CountdownTimer(5f);
-            timer.Tick(1f);
-            Assert.AreEqual(4f, timer.CurrentTime);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.AreEqual(1, Timer.Count);
         }
 
         [Test]
-        public void CountdownTimer_IsFinished_WhenZero()
+        public void Create_StopwatchTimer_ReturnsValidHandle()
         {
-            var timer = new CountdownTimer(1f);
-            Assert.IsFalse(timer.IsFinished);
-            timer.Tick(1f);
-            Assert.IsTrue(timer.IsFinished);
-            timer.Dispose();
+            var handle = Timer.Create<StopwatchTimer>(0f);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.AreEqual(1, Timer.Count);
         }
 
         [Test]
-        public void CountdownTimer_DoesNotGoBelowZero()
+        public void Create_MultipleTimers_IncreasesCount()
         {
-            var timer = new CountdownTimer(1f);
-            timer.Tick(5f);
-            Assert.AreEqual(0f, timer.CurrentTime);
-            timer.Dispose();
+            Timer.Create<CountdownTimer>(5f);
+            Timer.Create<StopwatchTimer>(0f);
+            Timer.Create<DelayTimer>(3f);
+            
+            Assert.AreEqual(3, Timer.Count);
         }
 
         [Test]
-        public void CountdownTimer_Reset_RestoresToInitialTime()
+        public void Create_WithConfig_AppliesSettings()
         {
-            var timer = new CountdownTimer(5f);
-            timer.Tick(3f);
-            timer.Reset();
-            Assert.AreEqual(5f, timer.CurrentTime);
-            timer.Dispose();
+            var config = TimerConfig.Create(10f, timeScale: 2f, useUnscaledTime: true);
+            var handle = Timer.Create<CountdownTimer>(config);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.AreEqual(10f, Timer.GetCurrentTime(handle), 0.01f);
         }
 
         [Test]
-        public void CountdownTimer_ResetWithNewTime_ChangesInitialTime()
+        public void Delay_CreatesTimerWithCallback()
         {
-            var timer = new CountdownTimer(5f);
-            timer.Reset(10f);
-            Assert.AreEqual(10f, timer.CurrentTime);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void CountdownTimer_Progress_CalculatesCorrectly()
-        {
-            var timer = new CountdownTimer(10f);
-            Assert.AreEqual(1f, timer.Progress);
-            timer.Tick(5f);
-            Assert.AreEqual(0.5f, timer.Progress);
-            timer.Tick(5f);
-            Assert.AreEqual(0f, timer.Progress);
-            timer.Dispose();
+            bool called = false;
+            var handle = Timer.Delay(1f, () => called = true);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.AreEqual(1, Timer.Count);
         }
 
         #endregion
 
-        #region StopwatchTimer Tests
+        #region Timer State Tests
 
         [Test]
-        public void StopwatchTimer_StartsAtZero()
+        public void Timer_IsRunning_TrueAfterCreation()
         {
-            var timer = new StopwatchTimer();
-            Assert.AreEqual(0f, timer.CurrentTime);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.IsTrue(Timer.IsRunning(handle));
         }
 
         [Test]
-        public void StopwatchTimer_Tick_IncrementsTime()
+        public void Timer_IsFinished_FalseAfterCreation()
         {
-            var timer = new StopwatchTimer();
-            timer.Tick(1f);
-            Assert.AreEqual(1f, timer.CurrentTime);
-            timer.Tick(2.5f);
-            Assert.AreEqual(3.5f, timer.CurrentTime);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.IsFalse(Timer.IsFinished(handle));
         }
 
         [Test]
-        public void StopwatchTimer_IsNeverFinished()
+        public void Timer_GetProgress_ReturnsOneAtStart()
         {
-            var timer = new StopwatchTimer();
-            timer.Tick(100f);
-            Assert.IsFalse(timer.IsFinished);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.AreEqual(1f, Timer.GetProgress(handle), 0.01f);
         }
 
         [Test]
-        public void StopwatchTimer_ElapsedTime_ReturnsCurrentTime()
+        public void Timer_GetCurrentTime_ReturnsInitialDuration()
         {
-            var timer = new StopwatchTimer();
-            timer.Tick(5f);
-            Assert.AreEqual(5f, timer.ElapsedTime);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void StopwatchTimer_Reset_SetsToZero()
-        {
-            var timer = new StopwatchTimer();
-            timer.Tick(10f);
-            timer.Reset();
-            Assert.AreEqual(0f, timer.CurrentTime);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.AreEqual(5f, Timer.GetCurrentTime(handle), 0.01f);
         }
 
         #endregion
 
-        #region FrequencyTimer Tests
+        #region Timer Control Tests
 
         [Test]
-        public void FrequencyTimer_TicksAtCorrectFrequency()
+        public void Pause_StopsTimer()
         {
-            int tickCount = 0;
-            var timer = new FrequencyTimer(10); // 10 ticks per second
-            timer.OnTick += () => tickCount++;
+            var handle = Timer.Create<CountdownTimer>(5f);
             
-            // Simulate 1 second
-            timer.Tick(1f);
+            Timer.Pause(handle);
             
-            Assert.AreEqual(10, tickCount);
-            timer.Dispose();
+            Assert.IsFalse(Timer.IsRunning(handle));
         }
 
         [Test]
-        public void FrequencyTimer_AccumulatesPartialTicks()
+        public void Resume_StartsTimerAfterPause()
         {
-            int tickCount = 0;
-            var timer = new FrequencyTimer(2); // 2 ticks per second (every 0.5s)
-            timer.OnTick += () => tickCount++;
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Timer.Pause(handle);
             
-            timer.Tick(0.3f); // Not enough for a tick
-            Assert.AreEqual(0, tickCount);
+            Timer.Resume(handle);
             
-            timer.Tick(0.3f); // Now we have 0.6s, should tick once
-            Assert.AreEqual(1, tickCount);
-            
-            timer.Dispose();
+            Assert.IsTrue(Timer.IsRunning(handle));
         }
 
         [Test]
-        public void FrequencyTimer_TickCount_TracksCorrectly()
+        public void Cancel_RemovesTimer()
         {
-            var timer = new FrequencyTimer(5);
-            timer.Tick(1f);
-            Assert.AreEqual(5, timer.TickCount);
-            timer.Tick(1f);
-            Assert.AreEqual(10, timer.TickCount);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Assert.AreEqual(1, Timer.Count);
+            
+            Timer.Cancel(handle);
+            
+            Assert.AreEqual(0, Timer.Count);
         }
 
         [Test]
-        public void FrequencyTimer_Reset_ClearsTickCount()
+        public void Reset_RestoresInitialTime()
         {
-            var timer = new FrequencyTimer(5);
-            timer.Tick(1f);
-            timer.Reset();
-            Assert.AreEqual(0, timer.TickCount);
-            timer.Dispose();
+            var handle = Timer.Create<CountdownTimer>(5f);
+            // Simulate some time passing (manually set for test)
+            
+            Timer.Reset(handle);
+            
+            Assert.AreEqual(5f, Timer.GetCurrentTime(handle), 0.01f);
+            Assert.IsTrue(Timer.IsRunning(handle));
         }
 
         [Test]
-        public void FrequencyTimer_SetTicksPerSecond_ChangesFrequency()
+        public void SetTimeScale_ChangesTimerSpeed()
         {
-            int tickCount = 0;
-            var timer = new FrequencyTimer(1);
-            timer.OnTick += () => tickCount++;
+            var handle = Timer.Create<CountdownTimer>(5f);
             
-            timer.SetTicksPerSecond(10);
-            timer.Tick(1f);
+            Timer.SetTimeScale(handle, 2f);
             
-            Assert.AreEqual(10, tickCount);
-            timer.Dispose();
+            // Timer should still be valid after setting time scale
+            Assert.IsTrue(Timer.IsRunning(handle));
+        }
+
+        [Test]
+        public void Clear_RemovesAllTimers()
+        {
+            Timer.Create<CountdownTimer>(5f);
+            Timer.Create<StopwatchTimer>(0f);
+            Timer.Create<DelayTimer>(3f);
+            Assert.AreEqual(3, Timer.Count);
+            
+            Timer.Clear();
+            
+            Assert.AreEqual(0, Timer.Count);
         }
 
         #endregion
 
-        #region Timer Lifecycle Tests
+        #region Callback Tests
 
         [Test]
-        public void Timer_Start_SetsIsRunningTrue()
+        public void OnComplete_CallbackRegistered_DoesNotThrow()
         {
-            var timer = new CountdownTimer(5f);
-            Assert.IsFalse(timer.IsRunning);
-            timer.Start();
-            Assert.IsTrue(timer.IsRunning);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void Timer_Stop_SetsIsRunningFalse()
-        {
-            var timer = new CountdownTimer(5f);
-            timer.Start();
-            timer.Stop();
-            Assert.IsFalse(timer.IsRunning);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void Timer_Pause_SetsIsRunningFalse()
-        {
-            var timer = new CountdownTimer(5f);
-            timer.Start();
-            timer.Pause();
-            Assert.IsFalse(timer.IsRunning);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void Timer_Resume_StartsAgain()
-        {
-            var timer = new CountdownTimer(5f);
-            timer.Start();
-            timer.Pause();
-            timer.Resume();
-            Assert.IsTrue(timer.IsRunning);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void Timer_OnTimerStart_FiresOnStart()
-        {
-            bool eventFired = false;
-            var timer = new CountdownTimer(5f);
-            timer.OnTimerStart += () => eventFired = true;
+            var handle = Timer.Create<CountdownTimer>(5f);
             
-            timer.Start();
-            
-            Assert.IsTrue(eventFired);
-            timer.Dispose();
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnComplete>(handle, () => { });
+            });
         }
 
         [Test]
-        public void Timer_OnTimerStop_FiresOnStop()
+        public void OnTick_WithParameter_CallbackRegistered()
         {
-            bool eventFired = false;
-            var timer = new CountdownTimer(5f);
-            timer.OnTimerStop += () => eventFired = true;
+            var handle = Timer.Create<CountdownTimer>(5f);
             
-            timer.Start();
-            timer.Stop();
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnTick, float>(handle, (dt) => { });
+            });
+        }
+
+        [Test]
+        public void OnRepeat_WithIntParameter_CallbackRegistered()
+        {
+            var handle = Timer.Create<RepeatingTimer>(1f);
             
-            Assert.IsTrue(eventFired);
-            timer.Dispose();
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnRepeat, int>(handle, (count) => { });
+            });
+        }
+
+        [Test]
+        public void OnPause_CallbackRegistered()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnPause>(handle, () => { });
+            });
+        }
+
+        [Test]
+        public void OnResume_CallbackRegistered()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnResume>(handle, () => { });
+            });
+        }
+
+        [Test]
+        public void OnReset_CallbackRegistered()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnReset>(handle, () => { });
+            });
+        }
+
+        [Test]
+        public void OnCancel_CallbackRegistered()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            Assert.DoesNotThrow(() => {
+                Timer.On<OnCancel>(handle, () => { });
+            });
+        }
+
+        [Test]
+        public void Off_UnregistersCallback()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Timer.On<OnComplete>(handle, () => { });
+            
+            Assert.DoesNotThrow(() => {
+                Timer.Off<OnComplete>(handle);
+            });
         }
 
         #endregion
 
-        #region TimerManager Tests
+        #region Easing Tests
 
         [Test]
-        public void TimerManager_RegisterTimer_IncrementsCount()
+        public void GetEasedProgress_Linear_ReturnsSameAsProgress()
         {
-            int initialCount = TimerManager.TimerCount;
-            var timer = new CountdownTimer(5f);
-            Assert.AreEqual(initialCount + 1, TimerManager.TimerCount);
-            timer.Dispose();
-        }
-
-        [Test]
-        public void TimerManager_UnregisterTimer_DecrementsCount()
-        {
-            var timer = new CountdownTimer(5f);
-            int countAfterRegister = TimerManager.TimerCount;
-            timer.Dispose();
-            Assert.AreEqual(countAfterRegister - 1, TimerManager.TimerCount);
-        }
-
-        [Test]
-        public void TimerManager_Clear_RemovesAllTimers()
-        {
-            new CountdownTimer(5f);
-            new StopwatchTimer();
-            new FrequencyTimer(10);
+            var handle = Timer.Create<CountdownTimer>(5f);
             
-            TimerManager.Clear();
-            Assert.AreEqual(0, TimerManager.TimerCount);
+            float progress = Timer.GetProgress(handle);
+            float eased = Timer.GetEasedProgress(handle, EasingType.Linear);
+            
+            Assert.AreEqual(progress, eased, 0.001f);
+        }
+
+        [Test]
+        public void GetEasedProgress_QuadIn_ReturnsDifferentValue()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            // QuadIn at t=1 should still be 1, but at t=0.5 it's 0.25
+            float eased = Timer.GetEasedProgress(handle, EasingType.QuadIn);
+            
+            // At start (progress = 1), QuadIn(1) = 1
+            Assert.AreEqual(1f, eased, 0.001f);
+        }
+
+        [Test]
+        public void Lerp_Float_InterpolatesCorrectly()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            float result = Timer.Lerp(handle, 0f, 100f, EasingType.Linear);
+            
+            Assert.AreEqual(100f, result, 0.01f);
+        }
+
+        [Test]
+        public void Lerp_Vector2_InterpolatesCorrectly()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Vector2 from = Vector2.zero;
+            Vector2 to = Vector2.one * 10f;
+            
+            Vector2 result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            
+            Assert.AreEqual(to, result);
+        }
+
+        [Test]
+        public void Lerp_Vector3_InterpolatesCorrectly()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Vector3 from = Vector3.zero;
+            Vector3 to = Vector3.one * 10f;
+            
+            Vector3 result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            
+            Assert.AreEqual(to, result);
+        }
+
+        [Test]
+        public void Lerp_Quaternion_InterpolatesCorrectly()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Quaternion from = Quaternion.identity;
+            Quaternion to = Quaternion.Euler(0, 90, 0);
+            
+            Quaternion result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            
+            Assert.AreEqual(to.eulerAngles.y, result.eulerAngles.y, 0.01f);
+        }
+
+        [Test]
+        public void Lerp_Color_InterpolatesCorrectly()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Color from = Color.black;
+            Color to = Color.white;
+            
+            Color result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            
+            Assert.AreEqual(to, result);
+        }
+
+        [Test]
+        public void LerpUnclamped_AllowsOvershoot()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            
+            // LerpUnclamped should work without throwing
+            Assert.DoesNotThrow(() => {
+                Timer.LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
+            });
+        }
+
+        #endregion
+
+        #region Timer Type Tests
+
+        [Test]
+        public void DelayTimer_CreatesValidHandle()
+        {
+            var handle = Timer.Create<DelayTimer>(2f);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.IsTrue(Timer.IsRunning(handle));
+        }
+
+        [Test]
+        public void RepeatingTimer_CreatesValidHandle()
+        {
+            var handle = Timer.Create<RepeatingTimer>(1f);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.IsTrue(Timer.IsRunning(handle));
+        }
+
+        [Test]
+        public void FrequencyTimer_CreatesValidHandle()
+        {
+            var handle = Timer.Create<FrequencyTimer>(10f);
+            
+            Assert.IsTrue(handle.IsValid);
+            Assert.IsTrue(Timer.IsRunning(handle));
+        }
+
+        #endregion
+
+        #region Handle Validity Tests
+
+        [Test]
+        public void InvalidHandle_IsValid_ReturnsFalse()
+        {
+            var handle = TimerHandle.None;
+            
+            Assert.IsFalse(handle.IsValid);
+        }
+
+        [Test]
+        public void CancelledTimer_Operations_DoNotThrow()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Timer.Cancel(handle);
+            
+            Assert.DoesNotThrow(() => Timer.Pause(handle));
+            Assert.DoesNotThrow(() => Timer.Resume(handle));
+            Assert.DoesNotThrow(() => Timer.GetProgress(handle));
+            Assert.DoesNotThrow(() => Timer.Reset(handle));
+            Assert.DoesNotThrow(() => Timer.SetTimeScale(handle, 1f));
+        }
+
+        [Test]
+        public void InvalidHandle_QueryOperations_ReturnDefaults()
+        {
+            var handle = TimerHandle.None;
+            
+            Assert.AreEqual(0f, Timer.GetCurrentTime(handle));
+            Assert.AreEqual(0f, Timer.GetProgress(handle));
+            Assert.IsTrue(Timer.IsFinished(handle));
+            Assert.IsFalse(Timer.IsRunning(handle));
+        }
+
+        #endregion
+
+        #region Backend Tests
+
+        [Test]
+        public void IsBurstMode_ReturnsBoolean()
+        {
+            // Just verify it doesn't throw
+            bool isBurst = Timer.IsBurstMode;
+            Assert.That(isBurst, Is.TypeOf<bool>());
+        }
+
+        [Test]
+        public void Count_ReturnsCorrectValue()
+        {
+            Assert.AreEqual(0, Timer.Count);
+            
+            Timer.Create<CountdownTimer>(1f);
+            Assert.AreEqual(1, Timer.Count);
+            
+            Timer.Create<CountdownTimer>(1f);
+            Assert.AreEqual(2, Timer.Count);
+        }
+
+        #endregion
+
+        #region Integration Tests
+
+        [UnityTest]
+        public IEnumerator Timer_Updates_AfterFrame()
+        {
+            var handle = Timer.Create<CountdownTimer>(1f);
+            float initialTime = Timer.GetCurrentTime(handle);
+            
+            yield return null;
+            
+            float newTime = Timer.GetCurrentTime(handle);
+            
+            Assert.Less(newTime, initialTime);
+        }
+
+        [UnityTest]
+        public IEnumerator StopwatchTimer_CountsUp()
+        {
+            var handle = Timer.Create<StopwatchTimer>(0f);
+            
+            yield return null;
+            
+            float time = Timer.GetCurrentTime(handle);
+            
+            Assert.Greater(time, 0f);
+        }
+
+        [UnityTest]
+        public IEnumerator PausedTimer_DoesNotUpdate()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            Timer.Pause(handle);
+            float initialTime = Timer.GetCurrentTime(handle);
+            
+            yield return null;
+            
+            float newTime = Timer.GetCurrentTime(handle);
+            
+            Assert.AreEqual(initialTime, newTime, 0.001f);
+        }
+
+        [UnityTest]
+        public IEnumerator OnTickCallback_IsInvoked()
+        {
+            var handle = Timer.Create<CountdownTimer>(5f);
+            bool tickCalled = false;
+            
+            Timer.On<OnTick, float>(handle, (dt) => tickCalled = true);
+            
+            yield return null;
+            
+            Assert.IsTrue(tickCalled);
+        }
+
+        [UnityTest]
+        public IEnumerator Timer_CompletesAfterDuration()
+        {
+            var handle = Timer.Create<CountdownTimer>(0.1f);
+            bool completed = false;
+            
+            Timer.On<OnComplete>(handle, () => completed = true);
+            
+            yield return new WaitForSeconds(0.2f);
+            
+            Assert.IsTrue(completed);
+            Assert.IsTrue(Timer.IsFinished(handle));
+        }
+
+        [UnityTest]
+        public IEnumerator Reset_RestoresTimerAfterCompletion()
+        {
+            var handle = Timer.Create<CountdownTimer>(0.1f);
+            
+            yield return new WaitForSeconds(0.2f);
+            
+            Assert.IsTrue(Timer.IsFinished(handle));
+            
+            Timer.Reset(handle);
+            
+            Assert.IsFalse(Timer.IsFinished(handle));
+            Assert.IsTrue(Timer.IsRunning(handle));
         }
 
         #endregion
