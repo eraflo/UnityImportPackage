@@ -41,6 +41,9 @@ namespace Eraflo.UnityImportPackage.Timers
             PlayerLoop.SetPlayerLoop(currentLoop);
             _initialized = true;
 
+            // Initialize timer pool from settings
+            InitializeTimerPool();
+
             // Clean up on application quit
             Application.quitting += OnApplicationQuit;
 
@@ -48,6 +51,77 @@ namespace Eraflo.UnityImportPackage.Timers
             // Reset when exiting play mode in editor
             UnityEditor.EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 #endif
+        }
+
+        /// <summary>
+        /// Initializes the timer pool using PackageSettings configuration.
+        /// Uses reflection to discover all Timer types.
+        /// </summary>
+        private static void InitializeTimerPool()
+        {
+            try
+            {
+                var settings = PackageSettings.Instance;
+                
+                TimerPool.DefaultCapacity = settings.TimerPoolDefaultCapacity;
+                TimerPool.MaxCapacity = settings.TimerPoolMaxCapacity;
+
+                if (settings.EnableTimerPooling && settings.TimerPoolPrewarmCount > 0)
+                {
+                    PrewarmAllTimerTypes(settings.TimerPoolPrewarmCount, settings.EnableTimerDebugLogs);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[TimerBootstrapper] Failed to initialize timer pool: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Discovers all non-abstract Timer subclasses and prewarms them.
+        /// </summary>
+        private static void PrewarmAllTimerTypes(int count, bool debugLog)
+        {
+            var timerBaseType = typeof(Timer);
+            var prewarmedTypes = new System.Collections.Generic.List<string>();
+
+            // Search all loaded assemblies for Timer subclasses
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    foreach (var type in assembly.GetTypes())
+                    {
+                        // Skip abstract classes, interfaces, and the base Timer class
+                        if (type.IsAbstract || type.IsInterface || type == timerBaseType)
+                            continue;
+
+                        // Check if it's a Timer subclass
+                        if (!timerBaseType.IsAssignableFrom(type))
+                            continue;
+
+                        // Try to prewarm this timer type
+                        try
+                        {
+                            TimerPool.Prewarm(type, count);
+                            prewarmedTypes.Add(type.Name);
+                        }
+                        catch
+                        {
+                            // Skip types that can't be instantiated
+                        }
+                    }
+                }
+                catch
+                {
+                    // Skip assemblies that can't be reflected
+                }
+            }
+
+            if (debugLog && prewarmedTypes.Count > 0)
+            {
+                Debug.Log($"[TimerPool] Prewarmed {count} timers for: {string.Join(", ", prewarmedTypes)}");
+            }
         }
 
         /// <summary>

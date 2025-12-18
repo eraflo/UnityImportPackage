@@ -15,6 +15,7 @@ A high-performance, extensible timer system that integrates directly into Unity'
   - [DelayTimer](#delaytimer)
   - [RepeatingTimer](#repeatingtimer)
 - [API Reference](#api-reference)
+- [Timer Pooling](#timer-pooling)
 - [Thread Safety](#thread-safety)
 - [Network Synchronization](#network-synchronization)
 - [Advanced Usage](#advanced-usage)
@@ -188,6 +189,59 @@ Debug.Log(timer.IsInfinite);      // true if repeatCount = 0
 | `OnTimerStop` | Fired when `Stop()` is called or timer finishes |
 | `OnTick` | *(FrequencyTimer, RepeatingTimer)* Fired at interval |
 | `OnComplete` | *(RepeatingTimer)* Fired when all repeats complete |
+
+---
+
+## Timer Pooling
+
+Reduce garbage collection by reusing timer instances.
+
+### Configuration
+
+Configure pooling in the `PackageSettings` asset:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Timer Pooling | `true` | Enable/disable pooling |
+| Default Capacity | `10` | Initial pool size per type |
+| Max Capacity | `50` | Maximum pooled timers per type |
+| Prewarm Count | `0` | Prewarm on startup |
+
+### Basic Usage
+
+```csharp
+// Get from pool (instead of new)
+var timer = TimerPool.GetCountdown(5f);
+timer.OnTimerStop += () => Debug.Log("Done!");
+timer.Start();
+
+// Return to pool when done (instead of Dispose)
+TimerPool.Release(timer);
+```
+
+### Available Methods
+
+```csharp
+// Generic method - works with any timer type
+var countdown = TimerPool.Get<CountdownTimer>(5f);  // 5 second duration
+var stopwatch = TimerPool.Get<StopwatchTimer>();
+var repeater = TimerPool.Get<RepeatingTimer>(1f);   // 1 second interval
+var frequency = TimerPool.Get<FrequencyTimer>(60);  // 60 ticks/sec
+
+// Also works with custom timers
+var myTimer = TimerPool.Get<MyCustomTimer>(2f);
+```
+
+### Manual Prewarming
+
+```csharp
+// Prewarm at any time (uses reflection)
+TimerPool.Prewarm<CountdownTimer>(20);
+TimerPool.Prewarm<MyCustomTimer>(10);
+```
+
+> [!IMPORTANT]
+> Use `TimerPool.Release(timer)` instead of `timer.Dispose()` to return timers to the pool.
 
 ---
 
