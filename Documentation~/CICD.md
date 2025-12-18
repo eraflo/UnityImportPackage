@@ -30,22 +30,45 @@ The version is automatically updated on merge to `main` following **Conventional
 
 | Commit Type | Bump | Example |
 |-------------|------|---------|
-| `fix:` | **Patch** (1.0.0 → 1.0.1) | `fix: fixed EventBus bug` |
-| `feat:` | **Minor** (1.0.0 → 1.1.0) | `feat: added NetworkEventChannel` |
 | `feat!:` or `BREAKING CHANGE` | **Major** (1.0.0 → 2.0.0) | `feat!: new API` |
+| `feat:` | **Minor** (1.0.0 → 1.1.0) | `feat: added NetworkEventChannel` |
+| `fix:` | **Patch** (1.0.0 → 1.0.1) | `fix: fixed EventBus bug` |
+| `perf:` | **Patch** | `perf: optimized timer update` |
+| `refactor:` | **Patch** | `refactor: cleaned up code` |
+| `docs:` | **Patch** | `docs: updated README` |
+| `style:` | **Patch** | `style: code formatting` |
+| `test:` | **Patch** | `test: added unit tests` |
+| `chore:` | **Patch** | `chore: updated dependencies` |
+| `build:` | **Patch** | `build: updated CI config` |
+| `ci:` | **Patch** | `ci: fixed workflow` |
 
-### Commit Examples
+> **Note**: `enhancement:` is no longer used. Use `feat:` for new features.
+
+### Commit Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+### Examples
 
 ```bash
-# Patch version (1.0.0 → 1.0.1)
+# Patch (1.0.0 → 1.0.1)
 git commit -m "fix: fixed EventBus callback"
+git commit -m "docs: updated Timer documentation"
+git commit -m "refactor(timers): cleaned up backend code"
 
-# Minor version (1.0.0 → 1.1.0)
+# Minor (1.0.0 → 1.1.0)
 git commit -m "feat: added NetworkEventChannel"
+git commit -m "feat(timers): added persistence support"
 
-# Major version (1.0.0 → 2.0.0)
+# Major (1.0.0 → 2.0.0)
 git commit -m "feat!: complete API refactoring"
-# or
+# or with body
 git commit -m "feat: new API
 
 BREAKING CHANGE: old API has been removed"

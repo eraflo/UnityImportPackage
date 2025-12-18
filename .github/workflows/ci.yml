@@ -157,16 +157,52 @@ jobs:
       - name: Determine version bump type
         id: bump_type
         run: |
-          # Check commit messages for version bump indicators
-          COMMITS=$(git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD)
-          
-          if echo "$COMMITS" | grep -qi "BREAKING CHANGE\|!:"; then
-            echo "type=major" >> $GITHUB_OUTPUT
-          elif echo "$COMMITS" | grep -qi "^feat"; then
-            echo "type=minor" >> $GITHUB_OUTPUT
+          # Get all commits since last tag (or all commits if no tag exists)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
           else
-            echo "type=patch" >> $GITHUB_OUTPUT
+            COMMITS=$(git log --pretty=format:"%s" $LAST_TAG..HEAD)
           fi
+          
+          echo "=== Commits to analyze ==="
+          echo "$COMMITS"
+          echo "=========================="
+          
+          # Initialize bump type
+          BUMP_TYPE="none"
+          
+          # Check each commit message for Conventional Commits format
+          while IFS= read -r commit; do
+            # BREAKING CHANGE in body or footer, or ! after type
+            if echo "$commit" | grep -qE "^[a-z]+(\(.+\))?!:|BREAKING CHANGE"; then
+              BUMP_TYPE="major"
+              break
+            fi
+            
+            # feat: = new feature = minor
+            if echo "$commit" | grep -qE "^feat(\(.+\))?:"; then
+              if [ "$BUMP_TYPE" != "major" ]; then
+                BUMP_TYPE="minor"
+              fi
+            fi
+            
+            # fix/perf/refactor/docs/style/test/chore = patch
+            if echo "$commit" | grep -qE "^(fix|perf|refactor|docs|style|test|chore|build|ci)(\(.+\))?:"; then
+              if [ "$BUMP_TYPE" = "none" ]; then
+                BUMP_TYPE="patch"
+              fi
+            fi
+          done <<< "$COMMITS"
+          
+          # Default to patch if no conventional commits found
+          if [ "$BUMP_TYPE" = "none" ]; then
+            BUMP_TYPE="patch"
+            echo "No conventional commits found, defaulting to patch"
+          fi
+          
+          echo "type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Determined bump type: $BUMP_TYPE"
       
       - name: Bump version
         id: bump
