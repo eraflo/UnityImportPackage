@@ -135,7 +135,10 @@ namespace Eraflo.UnityImportPackage.Timers.Backends
         {
             lock (_lockObject)
             {
-                return TryGetIndex(handle.Id, out var i) && _timerData[i].IsFinished;
+                // Invalid/not found handles are considered finished
+                if (!TryGetIndex(handle.Id, out var i))
+                    return true;
+                return _timerData[i].IsFinished;
             }
         }
 

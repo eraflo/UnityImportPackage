@@ -17,6 +17,85 @@ A high-performance, handle-based timer system with automatic backend selection a
 
 ---
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "User Code"
+        UC[Your Script]
+    end
+
+    subgraph "Timer API"
+        TF["Timer (Static Facade)"]
+        TH["TimerHandle"]
+    end
+
+    subgraph "Features"
+        TC[TimerChain]
+        TG[TimerGroup]
+        TP[TimerPresets]
+        TPE[TimerPersistence]
+        TM[TimerMetrics]
+        NS[NetworkTimerSync]
+    end
+
+    subgraph "Callbacks"
+        TCB[TimerCallbacks]
+        CB1[OnComplete]
+        CB2[OnTick]
+        CB3[OnRepeat]
+        CB4["OnPause/Resume/Reset/Cancel"]
+    end
+
+    subgraph "Backends"
+        IB["ITimerBackend"]
+        SB["StandardBackend"]
+        BB["BurstBackend"]
+    end
+
+    subgraph "Timer Types"
+        CT[CountdownTimer]
+        ST[StopwatchTimer]
+        DT[DelayTimer]
+        RT[RepeatingTimer]
+        FT[FrequencyTimer]
+    end
+
+    UC --> TF
+    TF --> TH
+    TF --> TCB
+    TF --> IB
+    
+    TC --> TF
+    TG --> TF
+    TP --> TF
+    TPE --> TF
+    TM --> TF
+    NS --> TF
+    
+    TCB --> CB1
+    TCB --> CB2
+    TCB --> CB3
+    TCB --> CB4
+    
+    IB --> SB
+    IB --> BB
+    
+    SB --> CT
+    SB --> ST
+    SB --> DT
+    SB --> RT
+    SB --> FT
+    
+    BB --> CT
+    BB --> ST
+    BB --> DT
+    BB --> RT
+    BB --> FT
+```
+
+---
+
 ## Quick Start
 
 ```csharp
