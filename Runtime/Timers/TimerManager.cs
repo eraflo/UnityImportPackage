@@ -209,6 +209,34 @@ namespace Eraflo.UnityImportPackage.Timers
             }
         }
 
+        #region Delay Helpers
+
+        /// <summary>
+        /// Executes an action after a specified delay.
+        /// The timer auto-disposes after completion.
+        /// </summary>
+        /// <param name="delay">Delay in seconds.</param>
+        /// <param name="onComplete">Action to execute after the delay.</param>
+        /// <param name="useUnscaledTime">If true, ignores Time.timeScale.</param>
+        /// <returns>The timer instance (can be used to cancel).</returns>
+        public static DelayTimer Delay(float delay, Action onComplete, bool useUnscaledTime = false)
+        {
+            var timer = new DelayTimer(delay, onComplete, useUnscaledTime);
+            timer.Start();
+            return timer;
+        }
+
+        /// <summary>
+        /// Cancels a delay timer if it's still running.
+        /// </summary>
+        /// <param name="timer">The timer to cancel.</param>
+        public static void CancelDelay(DelayTimer timer)
+        {
+            timer?.Dispose();
+        }
+
+        #endregion
+
         /// <summary>
         /// Updates all registered timers. Called automatically by the Player Loop.
         /// </summary>
