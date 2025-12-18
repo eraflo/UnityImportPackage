@@ -4,13 +4,32 @@
 
 A high-performance, extensible timer system that integrates directly into Unity's Player Loop.
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Timer Types](#timer-types)
+- [API Reference](#api-reference)
+- [Thread Safety](#thread-safety)
+- [Network Synchronization](#network-synchronization)
+- [Advanced Usage](#advanced-usage)
+- [How It Works](#how-it-works)
+
+---
+
 ## Features
 
-- **Player Loop Integration**: Timers run independently of MonoBehaviours
-- **Self-Managing**: Timers auto-register/unregister with the TimerManager
-- **Multiple Timer Types**: Countdown, Stopwatch, and Frequency timers
-- **Scaled/Unscaled Time**: Support for both Time.deltaTime and Time.unscaledDeltaTime
-- **Event-Based**: Subscribe to timer events (OnTimerStart, OnTimerStop, OnTick)
+| Feature | Description |
+|---------|-------------|
+| **Player Loop Integration** | Timers run independently of MonoBehaviours |
+| **Self-Managing** | Timers auto-register/unregister with the TimerManager |
+| **Multiple Timer Types** | Countdown, Stopwatch, and Frequency timers |
+| **Scaled/Unscaled Time** | Support for `Time.deltaTime` and `Time.unscaledDeltaTime` |
+| **Event-Based** | Subscribe to `OnTimerStart`, `OnTimerStop`, `OnTick` |
+| **Thread-Safe Mode** | Optional concurrent access from any thread |
+| **Network Sync** | NetworkedTimer variants for multiplayer with lag compensation |
+
+---
 
 ## Quick Start
 
@@ -29,10 +48,15 @@ stopwatch.Start();
 Debug.Log($"Elapsed: {stopwatch.ElapsedTime}");
 
 // Frequency Timer - ticks N times per second
-var frequency = new FrequencyTimer(10); // 10 ticks per second
+var frequency = new FrequencyTimer(10);
 frequency.OnTick += () => Debug.Log("Tick!");
 frequency.Start();
+
+// Don't forget to dispose!
+countdown.Dispose();
 ```
+
+---
 
 ## Timer Types
 
@@ -41,16 +65,13 @@ frequency.Start();
 Counts down from a duration to zero.
 
 ```csharp
-var timer = new CountdownTimer(10f); // 10 seconds
+var timer = new CountdownTimer(10f);
 
-timer.OnTimerStart += () => Debug.Log("Started");
 timer.OnTimerStop += () => Debug.Log("Complete");
-
 timer.Start();
 
-// In Update or elsewhere
 Debug.Log(timer.CurrentTime);  // Remaining time
-Debug.Log(timer.Progress);      // 0.0 to 1.0
+Debug.Log(timer.Progress);      // 1.0 → 0.0
 Debug.Log(timer.IsFinished);    // true when CurrentTime <= 0
 ```
 
@@ -62,12 +83,11 @@ Counts up from zero indefinitely.
 var stopwatch = new StopwatchTimer();
 stopwatch.Start();
 
-// Later...
 Debug.Log($"Elapsed: {stopwatch.ElapsedTime}s");
 
-stopwatch.Pause();  // Pause the stopwatch
-stopwatch.Resume(); // Continue counting
-stopwatch.Reset();  // Back to zero
+stopwatch.Pause();   // Pause
+stopwatch.Resume();  // Continue
+stopwatch.Reset();   // Back to zero
 ```
 
 ### FrequencyTimer
@@ -76,95 +96,287 @@ Fires an event N times per second.
 
 ```csharp
 var ticker = new FrequencyTimer(60); // 60 ticks per second
-ticker.OnTick += () => {
-    // Called 60 times per second
-    ProcessGameLogic();
-};
+ticker.OnTick += () => ProcessGameLogic();
 ticker.Start();
 
 Debug.Log(ticker.TickCount); // Total ticks since start
 ```
 
-## Timer Lifecycle
+---
 
-All timers share these common methods:
+## API Reference
+
+### Methods
 
 | Method | Description |
 |--------|-------------|
 | `Start()` | Starts or resumes the timer |
-| `Stop()` | Stops the timer and fires OnTimerStop |
+| `Stop()` | Stops the timer and fires `OnTimerStop` |
 | `Pause()` | Pauses without firing events |
-| `Resume()` | Same as Start() |
+| `Resume()` | Same as `Start()` |
 | `Reset()` | Resets to initial time |
 | `Reset(float)` | Resets with a new duration |
-| `Dispose()` | Cleans up the timer |
+| `Dispose()` | Unregisters and cleans up the timer |
 
-## Properties
+### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `CurrentTime` | float | Current time value |
-| `IsRunning` | bool | Whether the timer is active |
-| `IsFinished` | bool | Whether the timer has completed |
-| `Progress` | float | 0.0 to 1.0 progress ratio |
-| `UseUnscaledTime` | bool | Use real-time instead of scaled time |
+| `CurrentTime` | `float` | Current time value |
+| `IsRunning` | `bool` | Whether the timer is active |
+| `IsFinished` | `bool` | Whether the timer has completed |
+| `Progress` | `float` | 0.0 to 1.0 progress ratio |
+| `UseUnscaledTime` | `bool` | Use real-time (ignores `Time.timeScale`) |
 
-## Events
+### Events
 
 | Event | Description |
 |-------|-------------|
-| `OnTimerStart` | Fired when Start() is called |
-| `OnTimerStop` | Fired when Stop() is called or timer finishes |
-| `OnTick` | (FrequencyTimer only) Fired at specified frequency |
+| `OnTimerStart` | Fired when `Start()` is called |
+| `OnTimerStop` | Fired when `Stop()` is called or timer finishes |
+| `OnTick` | *(FrequencyTimer only)* Fired at specified frequency |
 
-## Using Unscaled Time
+---
 
-For timers that should ignore `Time.timeScale` (e.g., pause menus):
+## Thread Safety
+
+The timer system supports two threading modes:
+
+### SingleThread Mode *(Default)*
+
+Optimized for maximum performance on the main Unity thread.
+
+```csharp
+TimerManager.ThreadMode = TimerThreadMode.SingleThread;
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ Best performance | ⚠️ Main thread only |
+| ✅ Zero allocations during updates | |
+
+### ThreadSafe Mode
+
+Safe for async operations and multi-threaded access.
+
+```csharp
+TimerManager.ThreadMode = TimerThreadMode.ThreadSafe;
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ Safe from any thread | ⚠️ Small performance overhead |
+| ✅ Works with async/await | |
+
+> [!NOTE]
+> Set `ThreadMode` before creating any timers for best results.
+
+### Thread-Safe Integration Example
+
+```csharp
+using System.Threading.Tasks;
+using UnityEngine;
+using Eraflo.UnityImportPackage.Timers;
+
+public class AsyncDataLoader : MonoBehaviour
+{
+    private CountdownTimer _timeoutTimer;
+    private bool _dataLoaded;
+
+    async void Start()
+    {
+        // Enable thread-safe mode
+        TimerManager.ThreadMode = TimerThreadMode.ThreadSafe;
+
+        // Create a timeout timer on the main thread
+        _timeoutTimer = new CountdownTimer(10f);
+        _timeoutTimer.OnTimerStop += OnTimeout;
+        _timeoutTimer.Start();
+
+        // Load data on a background thread
+        await Task.Run(async () =>
+        {
+            await LoadDataFromServer();
+            
+            // Safe to dispose from background thread!
+            _timeoutTimer?.Dispose();
+            _timeoutTimer = null;
+        });
+
+        _dataLoaded = true;
+        Debug.Log("Data loaded successfully!");
+    }
+
+    private async Task LoadDataFromServer()
+    {
+        // Simulate network delay
+        await Task.Delay(3000);
+    }
+
+    private void OnTimeout()
+    {
+        if (!_dataLoaded)
+        {
+            Debug.LogError("Data loading timed out!");
+        }
+    }
+
+    void OnDestroy()
+    {
+        _timeoutTimer?.Dispose();
+    }
+}
+```
+
+### Checking Thread Context
+
+```csharp
+if (TimerManager.IsMainThread)
+{
+    // Direct timer operations
+}
+else
+{
+    // Consider using ThreadSafe mode
+}
+```
+
+---
+
+## Network Synchronization
+
+For multiplayer games, use the networked timer variants.
+
+### Network Modes
+
+| Mode | Description |
+|------|-------------|
+| `Local` | No network sync *(default)* |
+| `Owner` | This client controls the timer and broadcasts state |
+| `Remote` | Receives state from the network, cannot control directly |
+
+### Basic Usage
+
+```csharp
+// Host/Owner
+var timer = new NetworkedCountdownTimer(60f, "match-timer", TimerNetworkMode.Owner);
+timer.OnNetworkSync += SendToOtherClients;
+timer.Start();
+
+// Remote Client
+var remoteTimer = new NetworkedCountdownTimer(60f, "match-timer", TimerNetworkMode.Remote);
+```
+
+### Receiving Network State
+
+```csharp
+void OnTimerStateReceived(TimerNetworkState state, float latency)
+{
+    if (remoteTimer.TimerId == state.TimerId)
+    {
+        remoteTimer.ApplyNetworkState(state, latency);
+    }
+}
+```
+
+### Lag Compensation
+
+```csharp
+// Automatically compensates:
+// - Countdown: subtracts latency from remaining time
+// - Stopwatch: adds latency to elapsed time
+timer.ApplyNetworkState(state, networkLatency: 0.05f);
+```
+
+### Sync Interval
+
+```csharp
+timer.SyncInterval = 0.5f; // Sync every 500ms (default)
+timer.SyncInterval = 0.1f; // More responsive
+```
+
+### Network Integration Example
+
+```csharp
+using Eraflo.UnityImportPackage.Timers;
+
+public class MatchTimer : MonoBehaviour
+{
+    private NetworkedCountdownTimer _timer;
+
+    void Start()
+    {
+        bool isHost = /* your network check */;
+
+        _timer = new NetworkedCountdownTimer(
+            duration: 300f,
+            timerId: "match",
+            networkMode: isHost ? TimerNetworkMode.Owner : TimerNetworkMode.Remote
+        );
+
+        if (isHost)
+        {
+            _timer.OnNetworkSync += state => {
+                // Send via your network layer (Netcode, Photon, Mirror, etc.)
+                MyNetworkManager.Send("timer-sync", state);
+            };
+            _timer.Start();
+        }
+    }
+
+    public void OnNetworkMessage(TimerNetworkState state)
+    {
+        _timer.ApplyNetworkState(state, GetNetworkLatency());
+    }
+
+    void OnDestroy() => _timer?.Dispose();
+}
+```
+
+---
+
+## Advanced Usage
+
+### Using Unscaled Time
+
+For timers that should ignore `Time.timeScale` (pause menus, UI):
 
 ```csharp
 var pauseTimer = new CountdownTimer(3f);
-pauseTimer.UseUnscaledTime = true; // Ignores Time.timeScale
+pauseTimer.UseUnscaledTime = true;
 pauseTimer.Start();
 ```
 
-## Creating Custom Timers
+### Creating Custom Timers
 
-Extend the `Timer` class to create specialized timers:
+Extend the `Timer` class:
 
 ```csharp
 public class PingPongTimer : Timer
 {
     private bool _countingDown = true;
-    
+
     public PingPongTimer(float duration) : base(duration) { }
-    
-    public override bool IsFinished => false; // Never auto-stops
-    
+
+    public override bool IsFinished => false;
+
     public override void Tick(float deltaTime)
     {
         if (_countingDown)
         {
             CurrentTime -= deltaTime;
-            if (CurrentTime <= 0)
-            {
-                CurrentTime = 0;
-                _countingDown = false;
-            }
+            if (CurrentTime <= 0) { CurrentTime = 0; _countingDown = false; }
         }
         else
         {
             CurrentTime += deltaTime;
-            if (CurrentTime >= initialTime)
-            {
-                CurrentTime = initialTime;
-                _countingDown = true;
-            }
+            if (CurrentTime >= initialTime) { CurrentTime = initialTime; _countingDown = true; }
         }
     }
 }
 ```
 
-## Memory Management
+### Memory Management
 
 > [!IMPORTANT]
 > Always call `Dispose()` when you're done with a timer to prevent memory leaks.
@@ -173,28 +385,23 @@ public class PingPongTimer : Timer
 public class EnemySpawner : MonoBehaviour
 {
     private FrequencyTimer _spawnTimer;
-    
+
     void Start()
     {
         _spawnTimer = new FrequencyTimer(1);
         _spawnTimer.OnTick += SpawnEnemy;
         _spawnTimer.Start();
     }
-    
-    void OnDestroy()
-    {
-        _spawnTimer?.Dispose(); // Clean up!
-    }
+
+    void OnDestroy() => _spawnTimer?.Dispose();
 }
 ```
 
+---
+
 ## How It Works
 
-The timer system uses Unity's Player Loop API to inject an update step after `Update.ScriptRunBehaviourUpdate`. This means:
-
-1. **No MonoBehaviour Required**: Timers work in pure C# classes
-2. **Centralized Updates**: All timers are updated in one pass
-3. **Consistent Timing**: Timers update at the same point in the frame as Update()
+The timer system uses Unity's Player Loop API to inject an update step after `Update.ScriptRunBehaviourUpdate`:
 
 ```
 Player Loop Order:
@@ -209,6 +416,13 @@ Player Loop Order:
 ├── PostLateUpdate
 └── ...
 ```
+
+**Benefits:**
+1. No MonoBehaviour required
+2. Centralized updates in one pass
+3. Consistent timing with `Update()`
+
+---
 
 ## See Also
 

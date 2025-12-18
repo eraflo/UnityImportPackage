@@ -27,6 +27,9 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             if (_initialized) return;
 
+            // Capture main thread ID
+            TimerManager.MainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
             var currentLoop = PlayerLoop.GetCurrentPlayerLoop();
             
             if (!InsertTimerUpdate(ref currentLoop))
