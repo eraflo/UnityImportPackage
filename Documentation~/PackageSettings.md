@@ -1,12 +1,12 @@
 # Package Settings
 
-Configuration centrale du package UnityImportPackage.
+Central configuration for the UnityImportPackage.
 
 ---
 
-## Emplacement
+## Location
 
-Le fichier de configuration est **créé automatiquement** lors de l'import du package :
+The configuration file is **automatically created** when the package is imported:
 
 ```
 Assets/Resources/UnityImportPackageSettings.asset
@@ -14,7 +14,7 @@ Assets/Resources/UnityImportPackageSettings.asset
 
 ---
 
-## Accès
+## Access
 
 ### Via Menu
 **Tools > Unity Import Package > Settings**
@@ -30,31 +30,31 @@ bool debugMode = settings.NetworkDebugMode;
 
 ---
 
-## Paramètres
+## Settings
 
-| Paramètre | Type | Description |
-|-----------|------|-------------|
-| **Enable Networking** | `bool` | Active l'instanciation automatique du `NetworkEventManager` |
-| **Network Debug Mode** | `bool` | Affiche les logs de debug réseau dans la console |
+| Setting | Type | Description |
+|---------|------|-------------|
+| **Enable Networking** | `bool` | Enables automatic instantiation of `NetworkEventManager` |
+| **Network Debug Mode** | `bool` | Displays network debug logs in the console |
 
 ---
 
-## Comportement au Runtime
+## Runtime Behavior
 
-### Si Enable Networking = true
+### If Enable Networking = true
 
-Au lancement du jeu (`RuntimeInitializeOnLoadMethod`) :
-1. Un GameObject `[NetworkEventManager]` est créé
-2. `DontDestroyOnLoad` est appliqué → persiste entre les scènes
-3. Prêt à recevoir un `INetworkEventHandler`
+At game launch (`RuntimeInitializeOnLoadMethod`):
+1. A `[NetworkEventManager]` GameObject is created
+2. `DontDestroyOnLoad` is applied → persists across scenes
+3. Ready to receive an `INetworkEventHandler`
 
 ```
 [PackageInitializer] NetworkEventManager initialized
 ```
 
-### Si Enable Networking = false
+### If Enable Networking = false
 
-Aucune action automatique. Tu dois gérer manuellement :
+No automatic action. You must handle it manually:
 ```csharp
 var go = new GameObject("NetworkEventManager");
 go.AddComponent<NetworkEventManagerBehaviour>();
@@ -63,19 +63,19 @@ DontDestroyOnLoad(go);
 
 ---
 
-## Forcer le Rechargement
+## Force Reload
 
-Si tu modifies les settings pendant l'exécution :
+If you modify settings during execution:
 ```csharp
 PackageSettings.Reload();
 ```
 
 ---
 
-## Dépannage
+## Troubleshooting
 
-| Problème | Solution |
-|----------|----------|
-| "No settings found" warning | Créer via **Tools > Unity Import Package > Create Settings** |
-| Settings non appliqués | Vérifier que le fichier est dans `Assets/Resources/` |
-| NetworkEventManager absent | Activer **Enable Networking** dans les settings |
+| Issue | Solution |
+|-------|----------|
+| "No settings found" warning | Create via **Tools > Unity Import Package > Create Settings** |
+| Settings not applied | Verify the file is in `Assets/Resources/` |
+| NetworkEventManager missing | Enable **Enable Networking** in settings |

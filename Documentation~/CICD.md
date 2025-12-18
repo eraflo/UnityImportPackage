@@ -1,114 +1,115 @@
 # CI/CD
 
-Pipeline d'intégration et déploiement continu via GitHub Actions.
+Continuous integration and deployment pipeline via GitHub Actions.
 
 ---
 
 ## Workflows
 
-### 1. CI/CD Principal (`ci.yml`)
+### 1. Main CI/CD (`ci.yml`)
 
-| Job | Déclencheur | Action |
-|-----|-------------|--------|
-| **test** | Push/PR | Exécute les tests Unity |
-| **version** | Merge sur `main` | Bump version + Release |
-| **validate** | Push | Valide la structure du package |
+| Job | Trigger | Action |
+|-----|---------|--------|
+| **test** | Push/PR | Runs Unity tests |
+| **version** | Merge to `main` | Version bump + Release |
+| **validate** | Push | Validates package structure |
 
 ### 2. PR Checks (`pr.yml`)
 
 | Job | Action |
 |-----|--------|
-| **check-version** | Vérifie si la version a été modifiée manuellement |
-| **lint-commits** | Vérifie le format des commits |
-| **breaking-changes** | Détecte les breaking changes |
+| **check-version** | Checks if version was manually changed |
+| **lint-commits** | Validates commit message format |
+| **breaking-changes** | Detects breaking changes |
 
 ---
 
-## Versioning Automatique
+## Automatic Versioning
 
-La version est automatiquement mise à jour sur merge vers `main` selon les **Conventional Commits** :
+The version is automatically updated on merge to `main` following **Conventional Commits**:
 
-| Type de commit | Bump | Exemple |
-|----------------|------|---------|
-| `fix:` | **Patch** (1.0.0 → 1.0.1) | `fix: correction du bug X` |
-| `feat:` | **Minor** (1.0.0 → 1.1.0) | `feat: ajout de la feature Y` |
-| `feat!:` ou `BREAKING CHANGE` | **Major** (1.0.0 → 2.0.0) | `feat!: nouvelle API` |
+| Commit Type | Bump | Example |
+|-------------|------|---------|
+| `fix:` | **Patch** (1.0.0 → 1.0.1) | `fix: fixed EventBus bug` |
+| `feat:` | **Minor** (1.0.0 → 1.1.0) | `feat: added NetworkEventChannel` |
+| `feat!:` or `BREAKING CHANGE` | **Major** (1.0.0 → 2.0.0) | `feat!: new API` |
 
-### Exemples de commits
+### Commit Examples
 
 ```bash
 # Patch version (1.0.0 → 1.0.1)
-git commit -m "fix: correction du EventBus"
+git commit -m "fix: fixed EventBus callback"
 
 # Minor version (1.0.0 → 1.1.0)
-git commit -m "feat: ajout du NetworkEventChannel"
+git commit -m "feat: added NetworkEventChannel"
 
 # Major version (1.0.0 → 2.0.0)
-git commit -m "feat!: refactoring complet de l'API"
-# ou
-git commit -m "feat: nouvelle API
+git commit -m "feat!: complete API refactoring"
+# or
+git commit -m "feat: new API
 
-BREAKING CHANGE: l'ancienne API est supprimée"
+BREAKING CHANGE: old API has been removed"
 ```
 
 ---
 
-### Secrets GitHub
+### GitHub Secrets
 
-Ajouter dans **Settings > Secrets and variables > Actions** :
+Add in **Settings > Secrets and variables > Actions**:
 
 | Secret | Description |
 |--------|-------------|
-| `UNITY_LICENSE` | Contenu du fichier `.ulf` de licence Unity |
-| `UNITY_EMAIL` | Email du compte Unity |
-| `UNITY_PASSWORD` | Mot de passe du compte Unity |
+| `UNITY_LICENSE` | Content of the Unity `.ulf` license file |
+| `UNITY_EMAIL` | Unity account email |
+| `UNITY_PASSWORD` | Unity account password |
+| `PAT_TOKEN` | Personal Access Token for version bumping |
 
-### Obtenir la licence Unity (étape par étape)
+### Getting the Unity License (Step by Step)
 
-#### 1. Générer le fichier de demande (.alf)
+#### 1. Generate the activation request file (.alf)
 
-Ouvre PowerShell et exécute :
+Open PowerShell and run:
 ```powershell
-& "C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Unity.exe" -batchmode -createManualActivationFile -logFile unity.log -quit
+& "C:\Program Files\Unity\Hub\Editor\2022.3.62f1\Editor\Unity.exe" -batchmode -createManualActivationFile -logFile unity.log -quit
 ```
 
-> Remplace `2022.3.62f3` par ta version Unity.
+> Replace `2022.3.62f1` with your Unity version.
 
-Un fichier `Unity_v2022.x.alf` sera créé dans le dossier courant.
+A `Unity_v2022.x.alf` file will be created in the current folder.
 
-#### 2. Activer la licence
+#### 2. Activate the License
 
-1. Va sur [license.unity3d.com/manual](https://license.unity3d.com/manual)
-2. Upload le fichier `.alf`
-3. Choisis le type de licence (Personal, Pro, etc.)
-4. Télécharge le fichier `.ulf`
+1. Go to [license.unity3d.com/manual](https://license.unity3d.com/manual)
+2. Upload the `.alf` file
+3. Choose license type (Personal, Pro, etc.)
+4. Download the `.ulf` file
 
-#### 3. Ajouter les secrets GitHub
+#### 3. Add GitHub Secrets
 
-1. Va dans ton repo → **Settings > Secrets and variables > Actions**
-2. Clique sur **New repository secret**
-3. Crée les 3 secrets :
-   - `UNITY_LICENSE` : colle **tout le contenu** du fichier `.ulf`
-   - `UNITY_EMAIL` : ton email Unity
-   - `UNITY_PASSWORD` : ton mot de passe Unity
+1. Go to your repo → **Settings > Secrets and variables > Actions**
+2. Click **New repository secret**
+3. Create the secrets:
+   - `UNITY_LICENSE`: paste **all content** of the `.ulf` file
+   - `UNITY_EMAIL`: your Unity email
+   - `UNITY_PASSWORD`: your Unity password
 
-#### 4. Nettoyer
+#### 4. Clean Up
 
-Supprime les fichiers temporaires :
+Delete temporary files:
 ```powershell
 Remove-Item *.alf
 Remove-Item unity.log
 ```
 
-> ⚠️ **Ne jamais commit** les fichiers `.alf` ou `.ulf` !
+> ⚠️ **Never commit** `.alf` or `.ulf` files!
 
 ---
 
 ## Tests
 
-Les tests sont exécutés automatiquement sur chaque push et PR.
+Tests are automatically run on every push and PR.
 
-### Fichiers de tests
+### Test Files
 
 ```
 Tests/
@@ -117,19 +118,19 @@ Tests/
 │   ├── EventChannelTests.cs
 │   └── NetworkEventChannelTests.cs
 └── Editor/
-    └── (tests editor)
+    └── (editor tests)
 ```
 
-### Exécuter localement
+### Run Locally
 
-Dans Unity : **Window > General > Test Runner**
+In Unity: **Window > General > Test Runner**
 
 ---
 
 ## Releases
 
-À chaque merge sur `main` :
-1. Tests exécutés
-2. Version bumpée automatiquement
-3. Tag Git créé (`v1.2.3`)
-4. Release GitHub créée avec notes générées
+On every merge to `main`:
+1. Tests are executed
+2. Version is automatically bumped
+3. Git tag is created (`v1.2.3`)
+4. GitHub Release is created with auto-generated notes

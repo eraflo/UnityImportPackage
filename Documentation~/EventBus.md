@@ -129,9 +129,9 @@ EventChannels are **automatically registered** to Addressables when created.
 
 **Manual registration**: Menu > **Tools > Unity Import Package > Register All EventChannels to Addressables**
 
-#### Exemple concret : Système de Mods
+#### Concrete Example: Mod System
 
-Imaginons un jeu avec des mods. Chaque mod peut ajouter ses propres événements dans un fichier JSON :
+Imagine a game with mods. Each mod can add its own events via a JSON file:
 
 ```json
 // mod_config.json
@@ -143,7 +143,7 @@ Imaginons un jeu avec des mods. Chaque mod peut ajouter ses propres événements
 }
 ```
 
-Le `EventChannelLoader` permet de charger ces events dynamiquement :
+The `EventChannelLoader` allows loading these events dynamically:
 
 ```csharp
 using Eraflo.UnityImportPackage.Events;
@@ -156,10 +156,10 @@ public class ModLoader : MonoBehaviour
 
     void Start()
     {
-        // Lire le fichier de config du mod
+        // Read the mod config file
         var modConfig = LoadModConfig("mod_config.json");
         
-        // Charger chaque event dynamiquement
+        // Load each event dynamically
         foreach (string eventAddress in modConfig.events)
         {
             EventChannelLoader.LoadAsync<IntEventChannel>(eventAddress, channel =>
@@ -181,7 +181,7 @@ public class ModLoader : MonoBehaviour
 }
 ```
 
-> **Note**: Si tu utilises uniquement `[SerializeField]` pour référencer tes events, tu n'as **pas besoin** du `EventChannelLoader`. Il est uniquement utile pour le chargement dynamique.
+> **Note**: If you only use `[SerializeField]` to reference your events, you **don't need** the `EventChannelLoader`. It's only useful for dynamic loading.
 
 ---
 
