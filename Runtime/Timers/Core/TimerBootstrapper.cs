@@ -64,7 +64,7 @@ namespace Eraflo.UnityImportPackage.Timers
                 var settings = PackageSettings.Instance;
                 
                 // Set thread mode from settings
-                TimerManager.ThreadMode = settings.TimerThreadMode;
+                TimerManager.ThreadMode = (TimerThreadMode)(int)settings.ThreadMode;
                 
                 TimerPool.DefaultCapacity = settings.TimerPoolDefaultCapacity;
                 TimerPool.MaxCapacity = settings.TimerPoolMaxCapacity;

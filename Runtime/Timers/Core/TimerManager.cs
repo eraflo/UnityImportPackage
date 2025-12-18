@@ -13,21 +13,17 @@ namespace Eraflo.UnityImportPackage.Timers
     {
         /// <summary>
         /// Fast mode - optimized for single-threaded main thread access only.
-        /// Best performance but not thread-safe.
         /// </summary>
         SingleThread,
         
         /// <summary>
         /// Thread-safe mode - allows timer operations from any thread.
-        /// Slightly slower but safe for async/multi-threaded scenarios.
         /// </summary>
         ThreadSafe
     }
 
     /// <summary>
-    /// Central manager for all timers. Handles registration, unregistration,
-    /// and updating of all active timers. Updated via the Player Loop system.
-    /// Supports both single-threaded (optimized) and thread-safe modes.
+    /// Central manager for all timers. Uses PackageRuntime.IsThreadSafe for thread mode.
     /// </summary>
     public static class TimerManager
     {
@@ -42,24 +38,21 @@ namespace Eraflo.UnityImportPackage.Timers
         private static readonly object _lockObject = new object();
         
         private static bool _isUpdating;
-        private static TimerThreadMode _threadMode = TimerThreadMode.SingleThread;
 
         /// <summary>
         /// The current thread safety mode.
-        /// Change this before creating any timers for best results.
+        /// Delegates to PackageRuntime.ThreadMode.
         /// </summary>
         public static TimerThreadMode ThreadMode
         {
-            get => _threadMode;
-            set
-            {
-                if (_timers.Count > 0)
-                {
-                    Debug.LogWarning("[TimerManager] Changing ThreadMode while timers exist may cause issues.");
-                }
-                _threadMode = value;
-            }
+            get => (TimerThreadMode)(int)PackageRuntime.ThreadMode;
+            set => PackageRuntime.ThreadMode = (PackageThreadMode)(int)value;
         }
+
+        /// <summary>
+        /// Whether thread-safe mode is enabled.
+        /// </summary>
+        public static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
 
         /// <summary>
         /// The number of currently registered timers.
@@ -68,7 +61,7 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             get
             {
-                if (_threadMode == TimerThreadMode.ThreadSafe)
+                if (IsThreadSafe)
                 {
                     lock (_lockObject)
                     {
@@ -98,7 +91,7 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             if (timer == null) return;
 
-            if (_threadMode == TimerThreadMode.ThreadSafe)
+            if (IsThreadSafe)
             {
                 RegisterTimerThreadSafe(timer);
             }
@@ -147,7 +140,7 @@ namespace Eraflo.UnityImportPackage.Timers
         {
             if (timer == null) return;
 
-            if (_threadMode == TimerThreadMode.ThreadSafe)
+            if (IsThreadSafe)
             {
                 UnregisterTimerThreadSafe(timer);
             }
@@ -190,7 +183,7 @@ namespace Eraflo.UnityImportPackage.Timers
         /// </summary>
         public static void Clear()
         {
-            if (_threadMode == TimerThreadMode.ThreadSafe)
+            if (IsThreadSafe)
             {
                 lock (_lockObject)
                 {
@@ -242,7 +235,7 @@ namespace Eraflo.UnityImportPackage.Timers
         /// </summary>
         internal static void UpdateTimers()
         {
-            if (_threadMode == TimerThreadMode.ThreadSafe)
+            if (IsThreadSafe)
             {
                 UpdateTimersThreadSafe();
             }

@@ -1,4 +1,3 @@
-using Eraflo.UnityImportPackage.Timers;
 using UnityEngine;
 
 namespace Eraflo.UnityImportPackage
@@ -12,6 +11,10 @@ namespace Eraflo.UnityImportPackage
         private const string ResourcePath = "UnityImportPackageSettings";
         private static PackageSettings _instance;
 
+        [Header("Global Settings")]
+        [Tooltip("Thread mode for all package systems. SingleThread = faster, ThreadSafe = safe from any thread.")]
+        [SerializeField] private PackageThreadMode _threadMode = PackageThreadMode.SingleThread;
+
         [Header("Network Events")]
         [Tooltip("If enabled, the NetworkEventManager singleton will be automatically instantiated on game start.")]
         [SerializeField] private bool _enableNetworking = false;
@@ -20,9 +23,6 @@ namespace Eraflo.UnityImportPackage
         [SerializeField] private bool _networkDebugMode = false;
 
         [Header("Timer System")]
-        [Tooltip("Thread mode for timer operations. SingleThread = faster, ThreadSafe = safe from any thread.")]
-        [SerializeField] private TimerThreadMode _timerThreadMode = TimerThreadMode.SingleThread;
-
         [Tooltip("If enabled, log debug messages for timer events.")]
         [SerializeField] private bool _enableTimerDebugLogs = false;
 
@@ -71,9 +71,9 @@ namespace Eraflo.UnityImportPackage
         public bool NetworkDebugMode => _networkDebugMode;
 
         /// <summary>
-        /// Thread mode for timer operations.
+        /// Global thread mode for all package systems.
         /// </summary>
-        public TimerThreadMode TimerThreadMode => _timerThreadMode;
+        public PackageThreadMode ThreadMode => _threadMode;
 
         /// <summary>
         /// Whether to log debug messages for timer events.

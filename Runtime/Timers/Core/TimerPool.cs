@@ -6,7 +6,7 @@ namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
     /// Generic object pool for timers to reduce garbage collection.
-    /// Uses TimerManager.ThreadMode for thread safety.
+    /// Uses PackageRuntime.IsThreadSafe for thread safety.
     /// </summary>
     public static class TimerPool
     {
@@ -16,7 +16,7 @@ namespace Eraflo.UnityImportPackage.Timers
         private static int _defaultCapacity = 10;
         private static int _maxCapacity = 50;
 
-        private static bool IsThreadSafe => TimerManager.ThreadMode == TimerThreadMode.ThreadSafe;
+        private static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
 
         public static int DefaultCapacity
         {

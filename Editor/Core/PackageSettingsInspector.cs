@@ -11,7 +11,7 @@ namespace Eraflo.UnityImportPackage.Editor
     {
         private SerializedProperty _enableNetworking;
         private SerializedProperty _networkDebugMode;
-        private SerializedProperty _timerThreadMode;
+        private SerializedProperty _threadMode;
         private SerializedProperty _enableTimerDebugLogs;
         private SerializedProperty _enableTimerPooling;
         private SerializedProperty _timerPoolDefaultCapacity;
@@ -26,7 +26,7 @@ namespace Eraflo.UnityImportPackage.Editor
         {
             _enableNetworking = serializedObject.FindProperty("_enableNetworking");
             _networkDebugMode = serializedObject.FindProperty("_networkDebugMode");
-            _timerThreadMode = serializedObject.FindProperty("_timerThreadMode");
+            _threadMode = serializedObject.FindProperty("_threadMode");
             _enableTimerDebugLogs = serializedObject.FindProperty("_enableTimerDebugLogs");
             _enableTimerPooling = serializedObject.FindProperty("_enableTimerPooling");
             _timerPoolDefaultCapacity = serializedObject.FindProperty("_timerPoolDefaultCapacity");
@@ -59,13 +59,17 @@ namespace Eraflo.UnityImportPackage.Editor
 
             EditorGUILayout.Space(5);
 
+            // Global Settings
+            EditorGUILayout.LabelField("Global Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_threadMode, new GUIContent("Thread Mode", 
+                "SingleThread = faster, ThreadSafe = safe from any thread"));
+            EditorGUILayout.Space(5);
+
             // Timer Settings
             _showTimerSettings = EditorGUILayout.BeginFoldoutHeaderGroup(_showTimerSettings, "Timer System");
             if (_showTimerSettings)
             {
                 EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(_timerThreadMode, new GUIContent("Thread Mode", 
-                    "SingleThread = faster, ThreadSafe = safe from any thread"));
                 EditorGUILayout.PropertyField(_enableTimerDebugLogs, new GUIContent("Debug Logs"));
                 EditorGUI.indentLevel--;
             }

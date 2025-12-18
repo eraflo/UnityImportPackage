@@ -6,7 +6,7 @@ namespace Eraflo.UnityImportPackage.Timers
 {
     /// <summary>
     /// Groups multiple timers for collective control.
-    /// Uses TimerManager.ThreadMode for thread safety.
+    /// Uses PackageRuntime.IsThreadSafe for thread safety.
     /// </summary>
     public class TimerGroup : IDisposable
     {
@@ -16,7 +16,7 @@ namespace Eraflo.UnityImportPackage.Timers
         private bool _isPaused;
         private bool _isDisposed;
 
-        private bool IsThreadSafe => TimerManager.ThreadMode == TimerThreadMode.ThreadSafe;
+        private static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
 
         public string Name => _name;
         public bool IsPaused => _isPaused;
@@ -130,14 +130,14 @@ namespace Eraflo.UnityImportPackage.Timers
 
     /// <summary>
     /// Global registry for timer groups.
-    /// Uses TimerManager.ThreadMode for thread safety.
+    /// Uses PackageRuntime.IsThreadSafe for thread safety.
     /// </summary>
     public static class TimerGroups
     {
         private static readonly Dictionary<string, TimerGroup> _groups = new Dictionary<string, TimerGroup>();
         private static readonly object _lock = new object();
 
-        private static bool IsThreadSafe => TimerManager.ThreadMode == TimerThreadMode.ThreadSafe;
+        private static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
 
 #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoadMethod]
