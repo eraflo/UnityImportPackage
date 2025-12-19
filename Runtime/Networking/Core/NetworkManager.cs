@@ -86,10 +86,17 @@ namespace Eraflo.UnityImportPackage.Networking
             {
                 _backend.Initialize();
                 
-                // Wire router to backend - need closure over msgId
-                _router.OnTypeRegistered += msgId => 
-                    _backend.RegisterHandler(msgId, (data, senderId) => _router.Route(msgId, data, senderId));
-                _router.OnTypeUnregistered += msgId => _backend.UnregisterHandler(msgId);
+                // Wire router to backend - check for null since backend might change
+                _router.OnTypeRegistered += msgId =>
+                {
+                    if (_backend != null)
+                        _backend.RegisterHandler(msgId, (data, senderId) => _router.Route(msgId, data, senderId));
+                };
+                _router.OnTypeUnregistered += msgId =>
+                {
+                    if (_backend != null)
+                        _backend.UnregisterHandler(msgId);
+                };
                 
                 if (_backend.IsConnected) _handlers.NotifyConnected();
             }
