@@ -165,6 +165,25 @@ namespace Eraflo.UnityImportPackage.Networking.Backends
         {
             _handlers.Remove(msgType);
         }
+
+        public ulong LocalClientId => NetcodeMgr.Singleton?.LocalClientId ?? 0;
+
+        public void SendToClient(ushort msgType, byte[] data, ulong clientId)
+        {
+            if (NetcodeMgr.Singleton == null || !IsConnected || !IsServer) return;
+
+            var fullData = new byte[2 + data.Length];
+            fullData[0] = (byte)(msgType >> 8);
+            fullData[1] = (byte)(msgType & 0xFF);
+            Buffer.BlockCopy(data, 0, fullData, 2, data.Length);
+
+            using (var writer = new Unity.Netcode.FastBufferWriter(fullData.Length, Unity.Collections.Allocator.Temp))
+            {
+                writer.WriteBytesSafe(fullData);
+                NetcodeMgr.Singleton.CustomMessagingManager.SendUnnamedMessage(
+                    clientId, writer, Unity.Netcode.NetworkDelivery.ReliableSequenced);
+            }
+        }
     }
 }
 #endif

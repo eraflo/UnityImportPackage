@@ -94,6 +94,24 @@ public enum NetworkTarget
 }
 ```
 
+## Client-Specific Targeting
+
+Send messages to a specific client by ID:
+
+```csharp
+// SERVER: Send to specific client
+NetworkManager.SendToClient(new MyMessage { Data = 42 }, clientId);
+
+// Get local client ID
+ulong myId = NetworkManager.LocalClientId;
+
+// Example: Notify owner only
+if (NetworkManager.IsServer)
+{
+    NetworkManager.SendToClient(new OwnerNotification { Info = "You own this" }, ownerId);
+}
+```
+
 ---
 
 ## Extension Methods

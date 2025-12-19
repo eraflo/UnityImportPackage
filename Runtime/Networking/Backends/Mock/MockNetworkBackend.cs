@@ -73,6 +73,17 @@ namespace Eraflo.UnityImportPackage.Networking.Backends
             Debug.Log($"[MockNetworkBackend] Unregistered handler for msgType={msgType}");
         }
 
+        public void SendToClient(ushort msgType, byte[] data, ulong clientId)
+        {
+            Debug.Log($"[MockNetworkBackend] SendToClient msgType={msgType}, {data.Length} bytes, clientId={clientId}");
+
+            // Loopback if targeting self
+            if (EnableLoopback && clientId == LocalClientId && _handlers.TryGetValue(msgType, out var handler))
+            {
+                handler.Invoke(data, LocalClientId);
+            }
+        }
+
         /// <summary>
         /// Simulates receiving a message (for testing).
         /// </summary>

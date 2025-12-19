@@ -36,6 +36,19 @@ namespace Eraflo.UnityImportPackage.Networking
         /// Unregisters a message handler.
         /// </summary>
         void UnregisterHandler(ushort msgType);
+
+        /// <summary>
+        /// Sends a message to a specific client by ID.
+        /// </summary>
+        /// <param name="msgType">Message type identifier.</param>
+        /// <param name="data">Serialized message data.</param>
+        /// <param name="clientId">Target client ID.</param>
+        void SendToClient(ushort msgType, byte[] data, ulong clientId);
+
+        /// <summary>
+        /// Gets the local client ID.
+        /// </summary>
+        ulong LocalClientId { get; }
         
         /// <summary>
         /// Called when the backend is set as active.

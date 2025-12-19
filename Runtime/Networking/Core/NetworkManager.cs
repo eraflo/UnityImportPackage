@@ -141,6 +141,28 @@ namespace Eraflo.UnityImportPackage.Networking
         public static void Off<T>(Action<T> handler) where T : struct, INetworkMessage
             => _router.Off(handler);
 
+        /// <summary>
+        /// Sends a message to a specific client by ID. Server only.
+        /// </summary>
+        public static void SendToClient<T>(T message, ulong clientId) where T : struct, INetworkMessage
+        {
+            if (_backend == null || !_backend.IsConnected || !_backend.IsServer) return;
+
+            var msgId = _router.GetId<T>();
+            var data = NetworkSerializer.Serialize(message);
+            _backend.SendToClient(msgId, data, clientId);
+
+            if (PackageSettings.Instance.NetworkDebugMode)
+            {
+                Debug.Log($"[NetworkManager] Sent {typeof(T).Name} to client {clientId}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the local client ID.
+        /// </summary>
+        public static ulong LocalClientId => _backend?.LocalClientId ?? 0;
+
         #endregion
 
         #region Lifecycle
