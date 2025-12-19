@@ -184,6 +184,26 @@ namespace Eraflo.UnityImportPackage.Networking.Backends
                     clientId, writer, Unity.Netcode.NetworkDelivery.ReliableSequenced);
             }
         }
+
+        public void SendToClients(ushort msgType, byte[] data, ulong[] clientIds)
+        {
+            if (NetcodeMgr.Singleton == null || !IsConnected || !IsServer) return;
+
+            var fullData = new byte[2 + data.Length];
+            fullData[0] = (byte)(msgType >> 8);
+            fullData[1] = (byte)(msgType & 0xFF);
+            Buffer.BlockCopy(data, 0, fullData, 2, data.Length);
+
+            foreach (var clientId in clientIds)
+            {
+                using (var writer = new Unity.Netcode.FastBufferWriter(fullData.Length, Unity.Collections.Allocator.Temp))
+                {
+                    writer.WriteBytesSafe(fullData);
+                    NetcodeMgr.Singleton.CustomMessagingManager.SendUnnamedMessage(
+                        clientId, writer, Unity.Netcode.NetworkDelivery.ReliableSequenced);
+                }
+            }
+        }
     }
 }
 #endif

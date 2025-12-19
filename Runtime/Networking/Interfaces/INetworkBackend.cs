@@ -46,6 +46,14 @@ namespace Eraflo.UnityImportPackage.Networking
         void SendToClient(ushort msgType, byte[] data, ulong clientId);
 
         /// <summary>
+        /// Sends a message to multiple specific clients by ID.
+        /// </summary>
+        /// <param name="msgType">Message type identifier.</param>
+        /// <param name="data">Serialized message data.</param>
+        /// <param name="clientIds">Target client IDs.</param>
+        void SendToClients(ushort msgType, byte[] data, ulong[] clientIds);
+
+        /// <summary>
         /// Gets the local client ID.
         /// </summary>
         ulong LocalClientId { get; }

@@ -96,21 +96,25 @@ public enum NetworkTarget
 
 ## Client-Specific Targeting
 
-Send messages to a specific client by ID:
+Send messages to specific clients (server only):
 
 ```csharp
-// SERVER: Send to specific client
+// SERVER: Send to one specific client
 NetworkManager.SendToClient(new MyMessage { Data = 42 }, clientId);
+
+// SERVER: Send to multiple specific clients
+NetworkManager.SendToClients(new MyMessage { Data = 42 }, clientA, clientB, clientC);
+
+// SERVER: Send to array of clients
+ulong[] teamMembers = GetTeamMembers();
+NetworkManager.SendToClients(new TeamUpdate { Score = 100 }, teamMembers);
 
 // Get local client ID
 ulong myId = NetworkManager.LocalClientId;
-
-// Example: Notify owner only
-if (NetworkManager.IsServer)
-{
-    NetworkManager.SendToClient(new OwnerNotification { Info = "You own this" }, ownerId);
-}
 ```
+
+> [!NOTE]
+> These methods are server-only. Clients send to server with `SendToServer`, then the server relays.
 
 ---
 

@@ -159,6 +159,23 @@ namespace Eraflo.UnityImportPackage.Networking
         }
 
         /// <summary>
+        /// Sends a message to multiple specific clients by ID. Server only.
+        /// </summary>
+        public static void SendToClients<T>(T message, params ulong[] clientIds) where T : struct, INetworkMessage
+        {
+            if (_backend == null || !_backend.IsConnected || !_backend.IsServer) return;
+
+            var msgId = _router.GetId<T>();
+            var data = NetworkSerializer.Serialize(message);
+            _backend.SendToClients(msgId, data, clientIds);
+
+            if (PackageSettings.Instance.NetworkDebugMode)
+            {
+                Debug.Log($"[NetworkManager] Sent {typeof(T).Name} to {clientIds.Length} clients");
+            }
+        }
+
+        /// <summary>
         /// Gets the local client ID.
         /// </summary>
         public static ulong LocalClientId => _backend?.LocalClientId ?? 0;

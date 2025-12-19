@@ -145,6 +145,53 @@ namespace Eraflo.UnityImportPackage.Tests
 
         #endregion
 
+        #region Client Targeting
+
+        [Test]
+        public void LocalClientId_ReturnsBackendClientId()
+        {
+            Assert.AreEqual(0ul, NetworkManager.LocalClientId);
+        }
+
+        [Test]
+        public void SendToClient_DeliveresToSpecificClient()
+        {
+            bool received = false;
+            NetworkManager.On<TestMessage>(m => received = true);
+            
+            // Mock loopback simulates self-delivery
+            NetworkManager.SendToClient(new TestMessage { Value = 1 }, _mockBackend.LocalClientId);
+            
+            Assert.IsTrue(received);
+        }
+
+        [Test]
+        public void SendToClients_DeliversToMultipleClients()
+        {
+            int count = 0;
+            NetworkManager.On<TestMessage>(m => count++);
+            
+            // Send to self twice (loopback hits each time targeting self)
+            NetworkManager.SendToClients(new TestMessage { Value = 1 }, 
+                _mockBackend.LocalClientId, _mockBackend.LocalClientId);
+            
+            Assert.AreEqual(2, count);
+        }
+
+        [Test]
+        public void SendToClient_DoesNothing_WhenNotServer()
+        {
+            _mockBackend.SetServerState(false);
+            bool received = false;
+            NetworkManager.On<TestMessage>(m => received = true);
+            
+            NetworkManager.SendToClient(new TestMessage { Value = 1 }, 0);
+            
+            Assert.IsFalse(received);
+        }
+
+        #endregion
+
         #region Helpers
 
         private struct TestMessage : INetworkMessage

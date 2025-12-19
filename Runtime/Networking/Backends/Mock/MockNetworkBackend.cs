@@ -84,6 +84,19 @@ namespace Eraflo.UnityImportPackage.Networking.Backends
             }
         }
 
+        public void SendToClients(ushort msgType, byte[] data, ulong[] clientIds)
+        {
+            Debug.Log($"[MockNetworkBackend] SendToClients msgType={msgType}, {data.Length} bytes, clients={clientIds.Length}");
+
+            foreach (var clientId in clientIds)
+            {
+                if (EnableLoopback && clientId == LocalClientId && _handlers.TryGetValue(msgType, out var handler))
+                {
+                    handler.Invoke(data, LocalClientId);
+                }
+            }
+        }
+
         /// <summary>
         /// Simulates receiving a message (for testing).
         /// </summary>
