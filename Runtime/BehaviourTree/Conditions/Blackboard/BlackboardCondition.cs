@@ -3,12 +3,14 @@ using UnityEngine;
 namespace Eraflo.UnityImportPackage.BehaviourTree
 {
     /// <summary>
-    /// BlackboardConditional decorator: Checks a blackboard value and only executes
-    /// its child if the condition is met. Returns Failure if condition fails.
+    /// BlackboardCondition: Checks a blackboard value against a condition.
+    /// Returns Success if condition is met, Failure otherwise.
     /// </summary>
-    public class BlackboardConditional : DecoratorNode
+    [BehaviourTreeNode("Conditions/Blackboard", "Blackboard Condition")]
+    public class BlackboardCondition : ConditionNode
     {
         /// <summary>The key to check in the blackboard.</summary>
+        [BlackboardKey]
         public string Key;
         
         /// <summary>The comparison operator.</summary>
@@ -48,24 +50,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
             Exists
         }
         
-        protected override NodeState OnUpdate()
-        {
-            // First check the condition
-            if (!CheckCondition())
-            {
-                return NodeState.Failure;
-            }
-            
-            // Condition passed, execute child
-            if (Child == null)
-            {
-                return NodeState.Success;
-            }
-            
-            return Child.Evaluate();
-        }
-        
-        private bool CheckCondition()
+        protected override bool CheckCondition()
         {
             if (string.IsNullOrEmpty(Key) || Blackboard == null)
             {

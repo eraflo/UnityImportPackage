@@ -42,21 +42,64 @@ Open via: `Tools > Unity Import Package > Behaviour Tree Editor`
 | `Inverter` | Inverts child result |
 | `Repeater` | Repeats N times (0 = infinite) |
 | `Succeeder` | Always returns Success |
+| `Failer` | Always returns Failure |
 | `UntilFail` | Repeats until child fails |
 | `Cooldown` | Rate-limits execution (uses Timer) |
+| `TimeLimit` | Aborts child after timeout |
+| `Probability` | Executes child with X% chance |
+| `SubTree` | Executes another BT asset |
+| `BlackboardConditional` | Guards child with Blackboard condition |
 
 ### Actions (Green)
+
+**General:**
 | Node | Description |
 |------|-------------|
 | `Wait` | Waits N seconds (uses Timer) |
-| `Log` | Debug.Log message |
 | `RaiseEvent` | Raises EventChannel |
+| `WaitForEvent` | Waits for EventChannel to fire |
+| `RunUnityEvent` | Invokes a UnityEvent |
+
+**Navigation:** (requires NavMeshAgent)
+| Node | Description |
+|------|-------------|
+| `MoveTo` | NavMeshAgent pathfinding to target |
+| `RotateTo` | Smooth rotation towards target |
+
+**Animation:**
+| Node | Description |
+|------|-------------|
+| `PlayAnimation` | Plays animation with crossfade |
+| `SetAnimatorParameter` | Sets Bool/Int/Float/Trigger |
+
+**Blackboard:**
+| Node | Description |
+|------|-------------|
 | `SetBlackboardValue` | Sets blackboard data |
+
+**Debug:**
+| Node | Description |
+|------|-------------|
+| `Log` | Debug.Log message |
 
 ### Conditions (Yellow)
 | Node | Description |
 |------|-------------|
 | `BlackboardCondition` | Checks blackboard value |
+| `IsInRange` | Distance check to target |
+| `HasLineOfSight` | Raycast visibility check |
+
+---
+
+## TargetProvider System
+
+ScriptableObject-based targeting without tags/layers:
+
+| Provider | Description |
+|----------|-------------|
+| `BlackboardTargetProvider` | Reads Transform/GameObject/Vector3 from Blackboard |
+
+Create via: Right-click → Create → Eraflo → BehaviourTree → Target Providers
 
 ---
 
@@ -80,7 +123,7 @@ if (Blackboard.Contains("key")) { ... }
 
 ### Action Node
 ```csharp
-[CreateAssetMenu(menuName = "AI/My Action")]
+[BehaviourTreeNode("Actions/MyCategory", "My Action")]
 public class MyAction : ActionNode
 {
     protected override void OnStart() { }
@@ -97,7 +140,7 @@ public class MyAction : ActionNode
 
 ### Condition Node
 ```csharp
-[CreateAssetMenu(menuName = "AI/My Condition")]
+[BehaviourTreeNode("Conditions", "My Condition")]
 public class MyCondition : ConditionNode
 {
     protected override bool CheckCondition()
@@ -107,6 +150,48 @@ public class MyCondition : ConditionNode
 }
 ```
 
+### Decorator Node
+```csharp
+[BehaviourTreeNode("Decorators", "My Decorator")]
+public class MyDecorator : DecoratorNode
+{
+    protected override NodeState OnUpdate()
+    {
+        if (Child == null) return NodeState.Failure;
+        return Child.Evaluate();
+    }
+}
+```
+
+---
+
+## File Structure
+
+```
+Runtime/BehaviourTree/
+├── Actions/
+│   ├── ActionNode.cs (base class)
+│   ├── Wait.cs, RaiseEvent.cs, WaitForEvent.cs, RunUnityEvent.cs
+│   ├── Navigation/ → MoveTo.cs, RotateTo.cs
+│   ├── Animation/ → PlayAnimation.cs, SetAnimatorParameter.cs
+│   ├── Blackboard/ → SetBlackboardValue.cs
+│   └── Debug/ → Log.cs
+├── Composites/
+│   ├── CompositeNode.cs (base class)
+│   └── Selector.cs, Sequence.cs, Parallel.cs, RandomSelector.cs
+├── Decorators/
+│   ├── DecoratorNode.cs (base class)
+│   ├── Inverter.cs, Succeeder.cs, Failer.cs, Repeater.cs, etc.
+│   └── Blackboard/ → BlackboardConditional.cs
+├── Conditions/
+│   ├── ConditionNode.cs (base class)
+│   ├── IsInRange.cs, HasLineOfSight.cs
+│   └── Blackboard/ → BlackboardCondition.cs
+└── Core/
+    ├── Node.cs, BehaviourTree.cs, Blackboard.cs
+    └── TargetProvider.cs, BlackboardTargetProvider.cs
+```
+
 ---
 
 ## Integration
@@ -114,8 +199,8 @@ public class MyCondition : ConditionNode
 | System | Usage |
 |--------|-------|
 | **Timer** | `Wait`, `Cooldown` use Timer.Delay |
-| **EventBus** | `RaiseEvent` node raises EventChannel |
-| **Pooling** | Custom nodes can use Pool.Spawn |
+| **EventBus** | `RaiseEvent`, `WaitForEvent` nodes |
+| **AI Navigation** | `MoveTo` uses NavMeshAgent |
 | **Networking** | `NetworkBehaviourTreeSync` for multiplayer |
 
 ---

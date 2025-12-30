@@ -6,6 +6,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// Inverter decorator: Inverts the result of its child.
     /// Success becomes Failure, Failure becomes Success.
     /// </summary>
+    [BehaviourTreeNode("Decorators", "Inverter")]
     public class Inverter : DecoratorNode
     {
         protected override NodeState OnUpdate()

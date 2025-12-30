@@ -6,6 +6,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// Sequence (AND) node: Returns Failure when the first child fails.
     /// Runs each child in order, all must succeed for the sequence to succeed.
     /// </summary>
+    [BehaviourTreeNode("Composites", "Sequence")]
     public class Sequence : CompositeNode
     {
         protected override NodeState OnUpdate()

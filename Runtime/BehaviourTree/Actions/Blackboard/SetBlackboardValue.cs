@@ -5,9 +5,11 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// <summary>
     /// SetBlackboardValue action: Sets a value in the blackboard.
     /// </summary>
+    [BehaviourTreeNode("Actions/Blackboard", "Set Blackboard Value")]
     public class SetBlackboardValue : ActionNode
     {
         /// <summary>The key to set in the blackboard.</summary>
+        [BlackboardKey]
         public string Key;
         
         /// <summary>The type of value to set.</summary>

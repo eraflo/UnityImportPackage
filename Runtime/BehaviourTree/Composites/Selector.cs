@@ -6,6 +6,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// Selector (OR) node: Returns Success when the first child succeeds.
     /// Tries each child in order until one succeeds.
     /// </summary>
+    [BehaviourTreeNode("Composites", "Selector")]
     public class Selector : CompositeNode
     {
         protected override NodeState OnUpdate()

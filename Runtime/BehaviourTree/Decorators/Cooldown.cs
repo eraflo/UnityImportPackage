@@ -7,6 +7,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// Cooldown decorator: Prevents child execution until cooldown expires.
     /// Uses the Timer system for accurate timing.
     /// </summary>
+    [BehaviourTreeNode("Decorators", "Cooldown")]
     public class Cooldown : DecoratorNode
     {
         /// <summary>Cooldown duration in seconds.</summary>

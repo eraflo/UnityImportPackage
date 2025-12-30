@@ -25,7 +25,8 @@
     "com.unity.burst": "1.8.12",
     "com.unity.collections": "2.4.0",
     "com.unity.netcode.gameobjects": "1.8.1",
-    "com.unity.transport": "2.6.0"
+    "com.unity.transport": "2.6.0",
+    "com.unity.ai.navigation": "1.1.5"
   },
   "samples": [
     {

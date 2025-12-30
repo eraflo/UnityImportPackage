@@ -6,6 +6,7 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     /// Log action: Logs a message to the console and returns Success.
     /// Useful for debugging.
     /// </summary>
+    [BehaviourTreeNode("Actions/Debug", "Log")]
     public class Log : ActionNode
     {
         /// <summary>The message to log.</summary>
