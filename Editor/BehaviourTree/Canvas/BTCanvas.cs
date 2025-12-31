@@ -24,6 +24,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         public System.Action<System.Type> OnServiceTypeSelected; // Called when a service type is selected
         
         private VisualElement _contentContainer;
+        private VisualElement _noteLayer;
         private VisualElement _edgeLayer;
         private VisualElement _nodeLayer;
         
@@ -37,6 +38,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         private List<BTEdgeElement> _edgeElements = new List<BTEdgeElement>();
         private List<BTNodeElement> _selectedNodes = new List<BTNodeElement>();
         private List<BTEdgeElement> _selectedEdges = new List<BTEdgeElement>();
+        private List<BTStickyNoteElement> _selectedStickyNotes = new List<BTStickyNoteElement>();
         
         // Clipboard
         private System.Type _clipboardType;
@@ -80,6 +82,11 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             _contentContainer.style.top = 0;
             _contentContainer.pickingMode = PickingMode.Ignore;
             Add(_contentContainer);
+            
+            // Note layer (bottom layer)
+            _noteLayer = new VisualElement { name = "note-layer" };
+            _noteLayer.pickingMode = PickingMode.Ignore; // Notes capture events, layer ignores
+            _contentContainer.Add(_noteLayer);
             
             // Edge layer (below nodes) - needs Position for clicking on edges
             _edgeLayer = new VisualElement { name = "edge-layer" };
@@ -136,6 +143,15 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 if (node != null)
                 {
                     CreateEdgesForNode(node);
+                }
+            }
+            
+            // Create sticky notes
+            if (tree.StickyNotes != null)
+            {
+                foreach (var note in tree.StickyNotes)
+                {
+                    if (note != null) CreateStickyNoteView(note);
                 }
             }
             
@@ -199,6 +215,51 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             _nodeLayer.Add(element);
             
             return element;
+        }
+        
+        private void CreateStickyNote(Vector2 canvasPos)
+        {
+            if (_tree == null) return;
+            
+            Undo.RecordObject(_tree, "Create Sticky Note");
+            var note = _tree.CreateStickyNote(canvasPos);
+            CreateStickyNoteView(note);
+        }
+        
+        private void CreateStickyNoteView(StickyNote note)
+        {
+            var element = new BTStickyNoteElement(note);
+            _noteLayer.Add(element);
+            
+            element.OnSelected += (el) => SelectStickyNote(el, EditorGUI.actionKey || Event.current.shift);
+            element.OnDelete += DeleteStickyNoteView;
+        }
+
+        private void SelectStickyNote(BTStickyNoteElement element, bool additive)
+        {
+            if (!additive)
+            {
+                ClearSelection();
+            }
+            
+            if (!_selectedStickyNotes.Contains(element))
+            {
+                element.SetSelected(true);
+                _selectedStickyNotes.Add(element);
+            }
+        }
+        
+        private void DeleteStickyNoteView(BTStickyNoteElement element)
+        {
+            if (element == null || _tree == null) return;
+            
+            Undo.RecordObject(_tree, "Delete Sticky Note");
+            
+            _noteLayer.Remove(element);
+            _tree.DeleteStickyNote(element.Note);
+            
+            Undo.DestroyObjectImmediate(element.Note);
+            AssetDatabase.SaveAssets();
         }
         
         private void CreateEdgesForNode(Node node)
@@ -287,6 +348,9 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             
             foreach (var edge in _selectedEdges) edge.SetSelected(false);
             _selectedEdges.Clear();
+            
+            foreach (var note in _selectedStickyNotes) note.SetSelected(false);
+            _selectedStickyNotes.Clear();
             
             OnSelectionCleared?.Invoke();
         }
@@ -402,9 +466,20 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             // Right click for context menu
             else if (evt.button == 1)
             {
-                var canvasPos = ScreenToCanvas(evt.localMousePosition);
-                ShowContextMenu(evt.localMousePosition, canvasPos);
-                evt.StopPropagation();
+                // Only show canvas context menu if clicking background
+                 bool isBackground = evt.target == this || 
+                                    evt.target == _contentContainer || 
+                                    evt.target == _edgeLayer || 
+                                    evt.target == _nodeLayer || 
+                                    evt.target == _noteLayer ||
+                                    (evt.target as VisualElement)?.name == "grid-background";
+
+                if (isBackground)
+                {
+                    var canvasPos = ScreenToCanvas(evt.localMousePosition);
+                    ShowContextMenu(evt.localMousePosition, canvasPos);
+                    evt.StopPropagation();
+                }
             }
             // Double click for node creation
             else if (evt.button == 0 && evt.clickCount == 2)
@@ -445,6 +520,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             var menu = new GenericMenu();
             
             menu.AddItem(new GUIContent("Create Node"), false, () => OnShowSearchWindow?.Invoke(screenPos, canvasPos, typeof(Node)));
+            menu.AddItem(new GUIContent("Create Sticky Note"), false, () => CreateStickyNote(canvasPos));
             
             if (_clipboardType != null)
             {
@@ -571,6 +647,94 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 node.Node.name = _clipboardName;
                 EditorUtility.SetDirty(_tree);
             }
+        }
+        
+        public void DuplicateSelected()
+        {
+            if (_selectedNodes.Count == 0 || _tree == null) return;
+            
+            var newSelection = new List<BTNodeElement>();
+            var nodeMap = new Dictionary<Node, Node>();
+            
+            // 1. Duplicate all selected nodes
+            foreach (var nodeElement in _selectedNodes)
+            {
+                var originalNode = nodeElement.Node;
+                if (originalNode == null) continue;
+                
+                var newNode = originalNode.Clone();
+                newNode.name = originalNode.name;
+                newNode.Guid = GUID.Generate().ToString();
+                newNode.Position += new Vector2(30, 30);
+                
+                // Important: Clear old references in the clone as they point to original nodes
+                if (newNode is CompositeNode composite) composite.Children.Clear();
+                if (newNode is DecoratorNode decorator) decorator.Child = null;
+                
+                _tree.Nodes.Add(newNode);
+                AssetDatabase.AddObjectToAsset(newNode, _tree);
+                
+                // Clone services
+                newNode.Services.Clear();
+                foreach (var service in originalNode.Services)
+                {
+                    var newService = service.Clone() as ServiceNode;
+                    newService.name = service.name;
+                    newService.Guid = GUID.Generate().ToString();
+                    newService.Parent = newNode;
+                    newService.Tree = _tree;
+                    newNode.Services.Add(newService);
+                    AssetDatabase.AddObjectToAsset(newService, _tree);
+                }
+                
+                nodeMap[originalNode] = newNode;
+            }
+            
+            // 2. Reconstruct connections between DUPLICATED nodes only
+            foreach (var kvp in nodeMap)
+            {
+                var original = kvp.Key;
+                var clone = kvp.Value;
+                
+                if (original is CompositeNode originalComposite && clone is CompositeNode cloneComposite)
+                {
+                    foreach (var child in originalComposite.Children)
+                    {
+                        if (nodeMap.ContainsKey(child))
+                        {
+                            cloneComposite.Children.Add(nodeMap[child]);
+                        }
+                    }
+                }
+                else if (original is DecoratorNode originalDecorator && clone is DecoratorNode cloneDecorator)
+                {
+                    if (originalDecorator.Child != null && nodeMap.ContainsKey(originalDecorator.Child))
+                    {
+                        cloneDecorator.Child = nodeMap[originalDecorator.Child];
+                    }
+                }
+            }
+            
+            // 3. Create views and update selection
+            ClearSelection();
+            
+            foreach (var newNode in nodeMap.Values)
+            {
+                var newNodeElement = CreateNodeElement(newNode);
+                if (newNodeElement != null)
+                {
+                    SelectNode(newNodeElement, true);
+                }
+            }
+            
+            // 4. Create edges for the new internal connections
+            foreach (var newNode in nodeMap.Values)
+            {
+                CreateEdgesForNode(newNode);
+            }
+            
+            AssetDatabase.SaveAssets();
+            EditorUtility.SetDirty(_tree);
         }
         
         private void SetAsRoot(Node node)
@@ -748,11 +912,24 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             if (_isDraggingNodes && evt.button == 0)
             {
                 _isDraggingNodes = false;
-                // Mark dirty at the end of drag
+                
+                // Snap to grid
+                float gridSize = 20f;
                 foreach (var nodeElement in _selectedNodes)
                 {
                     if (nodeElement.Node != null)
                     {
+                        var pos = nodeElement.Node.Position;
+                        pos.x = Mathf.Round(pos.x / gridSize) * gridSize;
+                        pos.y = Mathf.Round(pos.y / gridSize) * gridSize;
+                        
+                        nodeElement.Node.Position = pos;
+                        nodeElement.style.left = pos.x;
+                        nodeElement.style.top = pos.y;
+                        
+                        // Update connected edges one last time
+                        OnNodePositionChanged(nodeElement);
+                        
                         EditorUtility.SetDirty(nodeElement.Node);
                     }
                 }
@@ -876,6 +1053,11 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 else if (evt.keyCode == KeyCode.X && _selectedNodes.Count == 1)
                 {
                     CutSelectedNode(_selectedNodes[0]);
+                    evt.StopPropagation();
+                }
+                else if (evt.keyCode == KeyCode.D)
+                {
+                    DuplicateSelected();
                     evt.StopPropagation();
                 }
             }

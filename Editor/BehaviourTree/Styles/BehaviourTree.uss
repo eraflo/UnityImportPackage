@@ -514,3 +514,61 @@
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* ============================================
+   STICKY NOTES
+   ============================================ */
+
+.sticky-note {
+    border-radius: 12px;
+    padding: 0; /* Remove padding from container to let header fill top */
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    flex-direction: column;
+}
+
+.sticky-note-header {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 6px 10px;
+    cursor: pan; /* Indicate draggable */
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+.sticky-note-header:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.sticky-note.selected {
+    border-width: 2px;
+    border-color: #3498db;
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
+}
+
+.sticky-note-title {
+    -unity-font-style: bold;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.8);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sticky-note-content {
+    flex-grow: 1;
+    white-space: normal; /* Wrap text */
+    padding: 10px;
+}
+
+.sticky-note-content > TextInput {
+    background-color: transparent;
+    border-width: 0;
+    color: rgba(0, 0, 0, 0.9);
+    padding: 0;
+    font-size: 12px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+}

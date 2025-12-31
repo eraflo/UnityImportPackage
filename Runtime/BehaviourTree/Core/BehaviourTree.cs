@@ -20,6 +20,9 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         /// <summary>All nodes in this tree (for serialization).</summary>
         [HideInInspector] public List<Node> Nodes = new();
         
+        /// <summary>Notes for documentation in the graph.</summary>
+        [HideInInspector] public List<StickyNote> StickyNotes = new();
+        
         /// <summary>The shared blackboard for this tree instance.</summary>
         public Blackboard Blackboard = new();
         
@@ -147,6 +150,16 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
             // Collect all cloned nodes
             CollectNodes(clone.RootNode, clone.Nodes);
             
+            // Clone sticky notes
+            clone.StickyNotes = new List<StickyNote>();
+            if (StickyNotes != null)
+            {
+                foreach (var note in StickyNotes)
+                {
+                    if (note != null) clone.StickyNotes.Add(Instantiate(note));
+                }
+            }
+            
             return clone;
         }
         
@@ -204,6 +217,28 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         {
             Nodes.Remove(node);
             AssetDatabase.RemoveObjectFromAsset(node);
+            AssetDatabase.SaveAssets();
+        }
+        
+        public StickyNote CreateStickyNote(Vector2 position)
+        {
+            var note = CreateInstance<StickyNote>();
+            note.name = "StickyNote";
+            note.Position.x = position.x;
+            note.Position.y = position.y;
+            
+            StickyNotes.Add(note);
+            
+            AssetDatabase.AddObjectToAsset(note, this);
+            AssetDatabase.SaveAssets();
+            
+            return note;
+        }
+        
+        public void DeleteStickyNote(StickyNote note)
+        {
+            StickyNotes.Remove(note);
+            AssetDatabase.RemoveObjectFromAsset(note);
             AssetDatabase.SaveAssets();
         }
         
