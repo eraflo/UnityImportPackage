@@ -1,13 +1,13 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
     /// <summary>
     /// Custom search window for node creation.

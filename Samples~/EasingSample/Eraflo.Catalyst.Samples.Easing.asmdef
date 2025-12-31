@@ -1,8 +1,8 @@
 {
-    "name": "Eraflo.UnityImportPackage.Samples.Timers",
-    "rootNamespace": "Eraflo.UnityImportPackage.Samples.Timers",
+    "name": "Eraflo.Catalyst.Samples.Easing",
+    "rootNamespace": "Eraflo.Catalyst.Samples.Easing",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.Catalyst.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

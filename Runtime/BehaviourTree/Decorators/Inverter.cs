@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Inverter decorator: Inverts the result of its child.

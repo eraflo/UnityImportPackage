@@ -1,16 +1,18 @@
 using UnityEngine;
-using Eraflo.UnityImportPackage.Timers;
+using Eraflo.Catalyst.Timers;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Wait action: Waits for a specified duration using the Timer system, then returns Success.
+    /// Duration can be overriden by a Data Input node.
     /// </summary>
     [BehaviourTreeNode("Actions", "Wait")]
     public class Wait : ActionNode
     {
         /// <summary>Duration to wait in seconds.</summary>
-        [Tooltip("Duration to wait in seconds.")]
+        [Tooltip("Duration to wait in seconds. Can be overriden by Input Port.")]
+        [NodeInput] 
         public float Duration = 1f;
         
         /// <summary>If true, uses unscaled time (ignores Time.timeScale).</summary>
@@ -23,24 +25,24 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         {
             _completed = false;
             
+            // Resolve duration: Use connected input if available, else use inspector value
+            float d = GetData("Duration", Duration);
+            
             // Create a delay timer using the Timer system
-            _timerHandle = Timer.Delay(Duration, () =>
+            _timerHandle = Timer.Delay(d, () =>
             {
                 _completed = true;
             }, UseUnscaledTime);
+            
+            DebugMessage = $"Wait {d:F1}s";
         }
         
         protected override NodeState OnUpdate()
         {
             if (_completed)
             {
-                DebugMessage = "Done";
                 return NodeState.Success;
             }
-            
-            float remaining = Duration - (Time.time - StartTime); // Fallback if handles don't give time
-            // Timer doesn't easily expose remaining time, but we can track it
-            DebugMessage = $"Waiting... {remaining:F1}s";
             
             return NodeState.Running;
         }

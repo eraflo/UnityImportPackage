@@ -1,6 +1,6 @@
 using System;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Attribute to mark a class as a Behaviour Tree node.

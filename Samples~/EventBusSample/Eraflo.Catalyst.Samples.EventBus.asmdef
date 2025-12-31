@@ -1,9 +1,8 @@
 {
-    "name": "Eraflo.UnityImportPackage.Samples.Networking",
-    "rootNamespace": "Eraflo.UnityImportPackage.Samples.Networking",
+    "name": "Eraflo.Catalyst.Samples.EventBus",
+    "rootNamespace": "Eraflo.Catalyst.Samples.Events",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime",
-        "Eraflo.UnityImportPackage.Networking"
+        "Eraflo.Catalyst.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

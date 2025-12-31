@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Marks a string field as a Blackboard key selector.

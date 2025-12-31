@@ -1,4 +1,4 @@
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Always returns Failure after executing its child (regardless of child result).

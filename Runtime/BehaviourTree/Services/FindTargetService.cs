@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     [BehaviourTreeNode("Services", "Find Target")]
     public class FindTargetService : ServiceNode

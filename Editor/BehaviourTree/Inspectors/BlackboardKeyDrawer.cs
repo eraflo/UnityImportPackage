@@ -3,7 +3,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree.Editor
+namespace Eraflo.Catalyst.BehaviourTree.Editor
 {
     /// <summary>
     /// Custom property drawer for BlackboardKey fields.

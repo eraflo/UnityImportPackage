@@ -19,6 +19,61 @@
     border-bottom-width: 3px;
     border-bottom-color: rgba(0, 0, 0, 0.4);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+    flex-direction: row; /* Allow side containers */
+}
+
+/* Data Ports Containers */
+.node-ports-container {
+    padding-top: 20px;
+    justify-content: center;
+}
+
+.node-ports-left {
+    margin-right: 8px;
+    align-items: flex-start;
+}
+
+.node-ports-right {
+    margin-left: 8px;
+    align-items: flex-end;
+}
+
+/* Individual Port */
+.bt-port {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+    height: 18px;
+}
+
+.bt-port.input {
+    justify-content: flex-start;
+}
+
+.bt-port.output {
+    justify-content: flex-end;
+}
+
+.port-handle {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #888;
+    border-width: 1px;
+    border-color: rgba(255,255,255,0.5);
+    margin: 0 4px;
+}
+
+.port-handle:hover {
+    border-color: white;
+    transform-origin: center;
+    scale: 1.2;
+}
+
+.port-label {
+    font-size: 10px;
+    color: #ccc;
+    padding: 0;
 }
 
 .node-title {

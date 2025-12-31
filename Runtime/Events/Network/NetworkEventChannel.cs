@@ -1,7 +1,7 @@
 using UnityEngine;
-using Eraflo.UnityImportPackage.Networking;
+using Eraflo.Catalyst.Networking;
 
-namespace Eraflo.UnityImportPackage.Events
+namespace Eraflo.Catalyst.Events
 {
     /// <summary>
     /// Network-aware EventChannel for void events.

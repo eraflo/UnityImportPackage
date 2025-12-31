@@ -1,8 +1,8 @@
 using UnityEditor;
 using UnityEngine;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
+namespace Eraflo.Catalyst.Editor.BehaviourTree
 {
     /// <summary>
     /// Custom editor for RaiseEvent node.

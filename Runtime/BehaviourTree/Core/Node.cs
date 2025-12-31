@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Abstract base class for all behaviour tree nodes.
@@ -44,6 +44,10 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
 
         /// <summary>Runtime only: Last debug message from this node.</summary>
         [System.NonSerialized] public string DebugMessage;
+        
+        /// <summary>Data ports defined on this node.</summary>
+        [HideInInspector] public List<NodePort> Ports = new();
+        [System.NonSerialized] private bool _portsInitialized;
         
         /// <summary>
         /// Evaluates this node and returns its state.
@@ -151,5 +155,73 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         /// Gets the GameObject this tree is attached to.
         /// </summary>
         protected GameObject Owner => Tree?.Owner;
+
+        
+        // ============================================
+        // DATA FLOW
+        // ============================================
+        
+        /// <summary>
+        /// Initializes ports by scanning for attributes.
+        /// </summary>
+        public void InitializePorts()
+        {
+            if (_portsInitialized) return;
+            
+            var type = GetType();
+            var fields = type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            
+            foreach (var field in fields)
+            {
+                var inputAttr = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<NodeInputAttribute>(field);
+                if (inputAttr != null)
+                {
+                    AddPort(inputAttr.Name ?? field.Name, true, field.FieldType);
+                }
+                
+                var outputAttr = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<NodeOutputAttribute>(field);
+                if (outputAttr != null)
+                {
+                    AddPort(outputAttr.Name ?? field.Name, false, field.FieldType);
+                }
+            }
+            
+            _portsInitialized = true;
+        }
+        
+        private void AddPort(string name, bool isInput, System.Type type)
+        {
+            var existing = Ports.Find(p => p.Name == name && p.IsInput == isInput);
+            if (existing != null)
+            {
+                existing.DataType = type;
+                return;
+            }
+            Ports.Add(new NodePort(name, isInput, type));
+        }
+
+        /// <summary>
+        /// Retrieves data from an input port.
+        /// If connected, pulls from the source. If not, returns the local value (fallback).
+        /// </summary>
+        protected T GetData<T>(string portName, T fallbackValue = default)
+        {
+            var port = Ports.Find(p => p.Name == portName && p.IsInput);
+            if (port != null && port.IsConnected)
+            {
+                // Find connected node
+                var sourceNode = Tree.Nodes.Find(n => n.Guid == port.ConnectedNodeId);
+                if (sourceNode != null)
+                {
+                    // For now, reflection based - optimization later
+                    var field = sourceNode.GetType().GetField(port.ConnectedPortName);
+                    if (field != null)
+                    {
+                        return (T)field.GetValue(sourceNode);
+                    }
+                }
+            }
+            return fallbackValue;
+        }
     }
 }

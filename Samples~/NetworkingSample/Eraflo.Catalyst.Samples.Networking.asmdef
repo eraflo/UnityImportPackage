@@ -1,8 +1,9 @@
 {
-    "name": "Eraflo.UnityImportPackage.Samples.Easing",
-    "rootNamespace": "Eraflo.UnityImportPackage.Samples.Easing",
+    "name": "Eraflo.Catalyst.Samples.Networking",
+    "rootNamespace": "Eraflo.Catalyst.Samples.Networking",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.Catalyst.Runtime",
+        "Eraflo.Catalyst.Networking"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

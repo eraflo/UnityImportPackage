@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// UntilFail decorator: Repeats its child until it fails.

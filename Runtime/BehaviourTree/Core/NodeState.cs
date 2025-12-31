@@ -1,4 +1,4 @@
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Represents the state of a behaviour tree node after evaluation.

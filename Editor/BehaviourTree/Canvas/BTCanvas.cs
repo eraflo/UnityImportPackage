@@ -1,14 +1,14 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using BT = Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+using BT = Eraflo.Catalyst.BehaviourTree.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
     /// <summary>
     /// Custom canvas with zoom and pan capabilities.
@@ -38,6 +38,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         private List<BTEdgeElement> _edgeElements = new List<BTEdgeElement>();
         private List<BTNodeElement> _selectedNodes = new List<BTNodeElement>();
         private List<BTEdgeElement> _selectedEdges = new List<BTEdgeElement>();
+        private List<BTDataEdgeElement> _selectedDataEdges = new List<BTDataEdgeElement>();
         private List<BTStickyNoteElement> _selectedStickyNotes = new List<BTStickyNoteElement>();
         
         private BTMinimapElement _minimap;
@@ -52,6 +53,12 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         // For edge creation
         private BTNodeElement _edgeStartNode;
         private BTTempEdgeElement _tempEdge;
+        
+        // Data Flow State
+        private BTDataTempEdgeElement _dataTempEdge;
+        private BTNodeElement _dataEdgeSourceNode;
+        private BTPortElement _dataEdgeSourcePort;
+        private bool _isConnectingData;
         
         // For marquee selection
         private VisualElement _selectionRect;
@@ -118,6 +125,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             RegisterCallback<MouseDownEvent>(OnMouseDown, TrickleDown.NoTrickleDown);
             RegisterCallback<MouseMoveEvent>(OnMouseMove);
             RegisterCallback<MouseUpEvent>(OnMouseUp);
+            RegisterCallback<MouseUpEvent>(OnDataMouseUp);
             RegisterCallback<KeyDownEvent>(OnKeyDown);
             
             focusable = true;
@@ -172,6 +180,35 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 }
             }
             
+            // Load Data Edges
+            foreach (var node in tree.Nodes)
+            {
+                node.InitializePorts(); // Ensure ports
+                foreach (var port in node.Ports)
+                {
+                    if (port.IsInput && port.IsConnected)
+                    {
+                        var sourceNode = tree.Nodes.Find(n => n.Guid == port.ConnectedNodeId);
+                        var targetNode = node;
+                        if (sourceNode != null)
+                        {
+                            // Output port lookup
+                            sourceNode.InitializePorts();
+                            var sourcePort = sourceNode.Ports.Find(p => p.Name == port.ConnectedPortName && !p.IsInput);
+                            if (sourcePort != null)
+                            {
+                                var sourceView = FindNodeElement(sourceNode);
+                                var targetView = FindNodeElement(targetNode);
+                                if (sourceView != null && targetView != null)
+                                {
+                                    CreateDataEdgeView(sourceView, sourcePort, targetView, port);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             _minimap?.UpdateMinimap();
             
             // Center view on root if exists - wait for layout to be ready
@@ -203,9 +240,9 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             foreach (var edge in _edgeElements)
             {
                 edge.ClearCallbacks();
-                _edgeLayer.Remove(edge);
             }
             _edgeElements.Clear();
+            _edgeLayer.Clear(); // Clears both execution edges and data edges
             
             _selectedNodes.Clear();
             _selectedEdges.Clear();
@@ -217,6 +254,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             var element = new BTNodeElement(node, _tree);
             element.OnSelected += nodeEl => SelectNode(nodeEl, EditorGUI.actionKey);
             element.OnStartEdge += OnStartEdgeCreation;
+            element.OnStartDataEdge += OnNodeStartDataEdge;
             element.OnPositionChanged += OnNodePositionChanged;
             
             _nodeElements.Add(element);
@@ -356,6 +394,9 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             
             foreach (var edge in _selectedEdges) edge.SetSelected(false);
             _selectedEdges.Clear();
+            
+            foreach (var edge in _selectedDataEdges) edge.SetSelected(false);
+            _selectedDataEdges.Clear();
             
             foreach (var note in _selectedStickyNotes) note.SetSelected(false);
             _selectedStickyNotes.Clear();
@@ -784,6 +825,19 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         
         private void OnMouseMove(MouseMoveEvent evt)
         {
+            if (_isConnectingData && _dataTempEdge != null)
+            {
+                // Convert mouse to local space of canvas (assuming canvas is at 0,0 relative to itself)
+                // Start pos needs to be in canvas space
+                if (_dataEdgeSourcePort != null)
+                {
+                    Vector2 startLocal = _dataEdgeSourcePort.ChangeCoordinatesTo(this, _dataEdgeSourcePort.GetHandle().layout.center);
+                    _dataTempEdge.Update(startLocal, evt.localMousePosition);
+                }
+                evt.StopPropagation(); // Consume data edge drag
+                return;
+            }
+
             if (_isPanning)
             {
                 Vector2 delta = evt.localMousePosition - _lastMousePos;
@@ -1065,7 +1119,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         {
             if (evt.keyCode == KeyCode.Delete)
             {
-                if (_selectedNodes.Count > 0 || _selectedEdges.Count > 0)
+                if (_selectedNodes.Count > 0 || _selectedEdges.Count > 0 || _selectedDataEdges.Count > 0)
                 {
                     DeleteSelection();
                     evt.StopPropagation();
@@ -1145,6 +1199,58 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 if (edge.FromNode != null) UpdateEdgeIndices(edge.FromNode);
             }
             _selectedEdges.Clear();
+            
+            // Delete data edges
+            foreach (var edge in _selectedDataEdges)
+            {
+                if (edge == null) continue;
+                
+                // Disconnect data
+                if (edge.ToPort != null)
+                {
+                    // Update node containing the input port
+                    var node = edge.ToNode?.Node;
+                    if (node != null)
+                    {
+                         Undo.RecordObject(node, "Disconnect Data");
+                         // We need to modify the 'Ports' list in the node which is rebuilt on load?
+                         // Actually Ports runtime list is rebuilt.
+                         // But serialization?
+                         // The attributes are metadata. The stored data is likely "Fields".
+                         // BUT my implementation of NodePort uses reflection to READ.
+                         // It doesn't WRITE back to fields yet!
+                         // Wait. Step 5064: Node.InitializePorts() reads values.
+                         // GetData<T> reads values.
+                         // The connection info (ConnectedNodeId) is stored in the NodePort object in the list?
+                         // The list is [HideInInspector] public List<NodePort> Ports.
+                         // Unity serializes this list!
+                         // So initializing ports overwrites it?
+                         // "InitializePorts" creates NEW NodePort instances from attributes.
+                         // It should PRESERVE existing connections if they match?
+                         // OR, I need to make sure InitializePorts handles serialization correctly.
+                         // Currently InitializePorts:
+                         // Ports.Clear(); loop...
+                         // This WIPES data!
+                         // I need to fix Node.cs to PERSIST data.
+                         // Or "InitializePorts" should only update structure, or "OnEnable" loads it.
+                         // Actually, if I serialize the connection data in the LIST, I must not clear it blindly.
+                         
+                         // Fix Required: Update Node.cs first to support persistence.
+                         // But for now, let's assume I need to update the port in the list.
+                         // Since I just have 'Ports' list on Node, I update it.
+                         
+                         var port = node.Ports.Find(p => p.Id == edge.ToPort.Id);
+                         if (port != null)
+                         {
+                             port.ConnectedNodeId = null;
+                             port.ConnectedPortName = null;
+                         }
+                    }
+                }
+                
+                _edgeLayer.Remove(edge);
+            }
+            _selectedDataEdges.Clear();
 
             // Delete nodes
             foreach (var nodeElement in _selectedNodes.ToList())
@@ -1162,6 +1268,41 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
                 {
                     _edgeLayer.Remove(edge);
                     _edgeElements.Remove(edge);
+                }
+                
+                // Remove DATA edges connected to this node
+                var connectedDataEdges = new List<BTDataEdgeElement>();
+                foreach (var child in _edgeLayer.Children())
+                {
+                    if (child is BTDataEdgeElement de && (de.FromNode == nodeElement || de.ToNode == nodeElement))
+                    {
+                        connectedDataEdges.Add(de);
+                    }
+                }
+                
+                foreach (var edge in connectedDataEdges)
+                {
+                    // If deleting the source, clear the connection on the target
+                    if (edge.FromNode == nodeElement && edge.ToNode != null && edge.ToNode.Node != null)
+                    {
+                        var targetNode = edge.ToNode.Node;
+                        // Find port by ID logic (assuming Port ID usage) or Name/IsInput
+                        // Note: DataEdgeElement holds reference to NodePort object, but that object might be stale if reload happened?
+                        // Actually NodePort is class, but list is rebuilt on deserialization.
+                        // Best to look up by Name/Input on the target node.
+                        // edge.ToPort is the runtime port instance used for the visual.
+                        
+                        // We need to find the matching port in the surviving node's current list
+                        var targetPort = targetNode.Ports.Find(p => p.Name == edge.ToPort.Name && p.IsInput);
+                        if (targetPort != null)
+                        {
+                            Undo.RecordObject(targetNode, "Disconnect Data");
+                            targetPort.ConnectedNodeId = null;
+                            targetPort.ConnectedPortName = null;
+                        }
+                    }
+                    
+                    _edgeLayer.Remove(edge);
                 }
             }
             _selectedNodes.Clear();
@@ -1242,6 +1383,153 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             else
             {
                 ZoomToFit();
+            }
+        }
+
+        private BTPortElement GetPortElementFromPick(VisualElement pick)
+        {
+            var el = pick;
+            while (el != null)
+            {
+                if (el is BTPortElement p) return p;
+                el = el.parent;
+            }
+            return null;
+        }
+        
+        private void TryConnectData(BTNodeElement fromNode, BTPortElement fromElem, BTNodeElement toNode, BTPortElement toElem)
+        {
+            // Validate
+            if (fromNode == toNode) return; // No self connect
+            
+            var fromPort = fromElem.Port;
+            var toPort = toElem.Port;
+            
+            // Must connect Output to Input (or swap)
+            // Normalize: Source = Output, Target = Input
+            NodePort outputPort = null;
+            NodePort inputPort = null;
+            BTNodeElement outputNode = null;
+            BTNodeElement inputNode = null;
+            
+            if (!fromPort.IsInput && toPort.IsInput)
+            {
+                outputPort = fromPort; outputNode = fromNode;
+                inputPort = toPort; inputNode = toNode;
+            }
+            else if (fromPort.IsInput && !toPort.IsInput)
+            {
+                outputPort = toPort; outputNode = toNode;
+                inputPort = fromPort; inputNode = fromNode;
+            }
+            else return; // Output-Output or Input-Input
+            
+            // Check types
+            if (!inputPort.DataType.IsAssignableFrom(outputPort.DataType))
+            {
+               Debug.LogWarning($"Type mismatch: Cannot connect {outputPort.DataType.Name} to {inputPort.DataType.Name}");
+               return;
+            }
+            
+            // Create data connection
+            Undo.RecordObject(_tree, "Connect Data");
+            
+            // Disconnect old if exists (Input can only have 1 source)
+            if (inputPort.IsConnected)
+            {
+                // Find old edge element and remove it?
+                // Logic should handle refreshing or removing explicitly.
+                // Ideal: Find data edge with this target and RemoveFromHierarchy.
+                RemoveDataEdge(inputPort.Id);
+            }
+            
+            inputPort.ConnectedNodeId = outputNode.Node.Guid;
+            inputPort.ConnectedPortName = outputPort.Name;
+            
+            // Create Visual
+            CreateDataEdgeView(outputNode, outputPort, inputNode, inputPort);
+            
+            EditorUtility.SetDirty(_tree);
+        }
+        
+        private void RemoveDataEdge(string targetPortId)
+        {
+            // Simple linear search as we don't have a map
+            foreach (var child in _edgeLayer.Children())
+            {
+                if (child is BTDataEdgeElement edge && edge.ToPort.Id == targetPortId)
+                {
+                    _edgeLayer.Remove(edge);
+                    return;
+                }
+            }
+        }
+        
+        private void CreateDataEdgeView(BTNodeElement from, NodePort fromPort, BTNodeElement to, NodePort toPort)
+        {
+            var edge = new BTDataEdgeElement(from, fromPort, to, toPort);
+            
+            edge.OnSelected = (e) => {
+                SelectDataEdge(e, EditorGUI.actionKey || Event.current.shift);
+            };
+            
+            _edgeLayer.Add(edge);
+            edge.UpdatePath();
+        }
+        
+        public void SelectDataEdge(BTDataEdgeElement edge, bool additive)
+        {
+            if (!additive)
+            {
+                ClearSelection();
+            }
+
+            if (!_selectedDataEdges.Contains(edge))
+            {
+                edge.SetSelected(true);
+                _selectedDataEdges.Add(edge);
+            }
+        }
+
+        private void OnNodeStartDataEdge(BTNodeElement node, BTPortElement port)
+        {
+            _dataEdgeSourceNode = node;
+            _dataEdgeSourcePort = port;
+            _isConnectingData = true;
+            
+            // Create temp edge
+            _dataTempEdge = new BTDataTempEdgeElement(node, port.Port);
+            Add(_dataTempEdge);
+        }
+
+        private void OnDataMouseUp(MouseUpEvent evt)
+        {
+            if (_isConnectingData)
+            {
+                // Check if dropped on a port
+                var targetElement = panel.Pick(evt.mousePosition); // Screen space pick
+                // Walk up to find BTPortElement
+                var targetPortElem = GetPortElementFromPick(targetElement);
+                
+                if (targetPortElem != null && targetPortElem != _dataEdgeSourcePort)
+                {
+                    var targetNodeElem = FindNodeElement(targetPortElem.Node);
+                    if (targetNodeElem != null)
+                    {
+                        TryConnectData(_dataEdgeSourceNode, _dataEdgeSourcePort, targetNodeElem, targetPortElem);
+                    }
+                }
+                
+                // Cleanup temp edge
+                if (_dataTempEdge != null)
+                {
+                    _dataTempEdge.RemoveFromHierarchy();
+                    _dataTempEdge = null;
+                }
+                _isConnectingData = false;
+                _dataEdgeSourceNode = null;
+                _dataEdgeSourcePort = null;
+                evt.StopPropagation(); // Consume event
             }
         }
     }

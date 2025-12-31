@@ -1,7 +1,7 @@
 using UnityEngine;
-using Eraflo.UnityImportPackage.Timers;
+using Eraflo.Catalyst.Timers;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Cooldown decorator: Prevents child execution until cooldown expires.

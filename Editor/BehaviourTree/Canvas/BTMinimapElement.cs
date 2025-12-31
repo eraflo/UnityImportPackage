@@ -2,9 +2,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
 using System.Collections.Generic;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
     public class BTMinimapElement : VisualElement
     {

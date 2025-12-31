@@ -2,10 +2,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
 using UnityEditor.UIElements;
-using Eraflo.UnityImportPackage.BehaviourTree;
-using BT = Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
+using BT = Eraflo.Catalyst.BehaviourTree.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Panels
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
 {
     /// <summary>
     /// Floating inspector panel for selected node using pure UIElements.

@@ -1,12 +1,12 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Eraflo.UnityImportPackage.BehaviourTree;
-using Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas;
-using Eraflo.UnityImportPackage.Editor.BehaviourTree.Panels;
-using BT = Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
+using Eraflo.Catalyst.Editor.BehaviourTree.Canvas;
+using Eraflo.Catalyst.Editor.BehaviourTree.Panels;
+using BT = Eraflo.Catalyst.BehaviourTree.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Window
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Window
 {
     /// <summary>
     /// Main editor window for the Behaviour Tree.
@@ -22,7 +22,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Window
         [SerializeField] private BT _tree;
         private Label _treeNameLabel;
         
-        [MenuItem("Tools/Unity Import Package/Behaviour Tree Editor")]
+        [MenuItem("Tools/Eraflo Catalyst/Behaviour Tree Editor")]
         public static void OpenWindow()
         {
             var window = GetWindow<BehaviourTreeEditorWindow>();
@@ -43,7 +43,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Window
             
             // Load stylesheet
             var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(
-                "Packages/com.eraflo.unityimportpackage/Editor/BehaviourTree/Styles/BehaviourTree.uss"
+                "Packages/com.Eraflo.Catalyst/Editor/BehaviourTree/Styles/BehaviourTree.uss"
             );
             if (styleSheet != null)
             {

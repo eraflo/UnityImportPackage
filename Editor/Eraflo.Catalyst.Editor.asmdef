@@ -1,8 +1,8 @@
 {
-    "name": "Eraflo.UnityImportPackage.Editor",
-    "rootNamespace": "Eraflo.UnityImportPackage.Editor",
+    "name": "Eraflo.Catalyst.Editor",
+    "rootNamespace": "Eraflo.Catalyst.Editor",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime",
+        "Eraflo.Catalyst.Runtime",
         "Unity.Addressables",
         "Unity.Addressables.Editor",
         "Unity.ResourceManager"

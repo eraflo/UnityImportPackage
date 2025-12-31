@@ -14,7 +14,7 @@ A flexible, ScriptableObject-based Behaviour Tree system for AI agents with visu
 
 ## Visual Editor
 
-Open via: `Tools > Unity Import Package > Behaviour Tree Editor`
+Open via: `Tools > Eraflo Catalyst > Behaviour Tree Editor`
 
 | Feature | Description |
 |---------|-------------|
@@ -55,7 +55,7 @@ Open via: `Tools > Unity Import Package > Behaviour Tree Editor`
 **General:**
 | Node | Description |
 |------|-------------|
-| `Wait` | Waits N seconds (uses Timer) |
+| `Wait` | Waits N seconds. Supports dynamic duration via `Duration` port. |
 | `RaiseEvent` | Raises EventChannel |
 | `WaitForEvent` | Waits for EventChannel to fire |
 | `RunUnityEvent` | Invokes a UnityEvent |
@@ -63,7 +63,7 @@ Open via: `Tools > Unity Import Package > Behaviour Tree Editor`
 **Navigation:** (requires NavMeshAgent)
 | Node | Description |
 |------|-------------|
-| `MoveTo` | NavMeshAgent pathfinding to target |
+| `MoveTo` | NavMeshAgent pathfinding. Supports dynamic target via `InputTarget` port. |
 | `RotateTo` | Smooth rotation towards target |
 
 **Animation:**
@@ -87,7 +87,7 @@ Open via: `Tools > Unity Import Package > Behaviour Tree Editor`
 |------|-------------|
 | `BlackboardCondition` | Checks blackboard value |
 | `IsInRange` | Distance check to target |
-| `HasLineOfSight` | Raycast visibility check |
+| `HasLineOfSight` | Raycast visibility check. Supports dynamic target via `InputTarget` port. |
 
 ---
 
@@ -164,6 +164,20 @@ Blackboard.RegisterListener("health", (oldVal, newVal) => {
 
 ---
 
+## Data Flow
+
+Directly connect nodes to pass data values (e.g., Calculate Position → MoveTo).
+
+1. **Ports**: Nodes can have Input (Left) and Output (Right) ports.
+2. **Connections**: Drag from Output to Input to link data.
+3. **Hybrid Mode**: Standard nodes (Wait, MoveTo) use data if connected, or fallback to Inspector values if not.
+
+### Supported Types
+- `float`, `int`, `bool`, `string`, `Vector3`, `GameObject`, `Transform`
+- System validates connections (prevents type mismatch).
+
+---
+
 ## Custom Nodes
 
 ### Action Node
@@ -180,6 +194,35 @@ public class MyAction : ActionNode
     }
     
     protected override void OnStop() { }
+}
+```
+
+### Data Flow Action
+```csharp
+[BehaviourTreeNode("MyCategory", "Generator")]
+public class NumberGenerator : ActionNode
+{
+    [NodeOutput] public float OutputValue; // Creates Output Port
+
+    protected override NodeState OnUpdate()
+    {
+        OutputValue = Random.Range(0f, 100f);
+        return NodeState.Success;
+    }
+}
+
+[BehaviourTreeNode("MyCategory", "Consumer")]
+public class NumberPrinter : ActionNode
+{
+    [NodeInput] public float InputValue; // Creates Input Port
+
+    protected override NodeState OnUpdate()
+    {
+        // Get data from port (or use local variable as fallback)
+        float val = GetData("InputValue", InputValue); 
+        Debug.Log($"Value: {val}");
+        return NodeState.Success;
+    }
 }
 ```
 

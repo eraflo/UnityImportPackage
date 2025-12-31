@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// A behaviour tree asset that can be assigned to agents.
@@ -142,25 +142,90 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         /// <returns>A cloned tree ready for runtime use.</returns>
         public BehaviourTree Clone()
         {
-            var clone = Instantiate(this);
-            clone.Blackboard = Blackboard.Clone();
-            clone.RootNode = RootNode?.Clone();
-            clone.Nodes = new List<Node>();
+            var treeClone = Instantiate(this);
+            treeClone.Blackboard = Blackboard.Clone();
+            treeClone.Nodes = new List<Node>();
+            treeClone.StickyNotes = new List<StickyNote>();
+
+            // 1. Instantiate all nodes and map them
+            var nodeMap = new Dictionary<Node, Node>();
             
-            // Collect all cloned nodes
-            CollectNodes(clone.RootNode, clone.Nodes);
+            // Loop over original nodes to ensure we catch orphans
+            foreach (var node in Nodes)
+            {
+                if (node == null) continue;
+                
+                var nodeClone = Instantiate(node);
+                nodeClone.Tree = treeClone;
+                nodeClone.Guid = node.Guid; // Keep GUID for data flow connections
+                nodeClone.Services = new List<ServiceNode>(); // Clear/Init services list
+                
+                // Clear structural refs (they point to old assets)
+                if (nodeClone is CompositeNode c) c.Children = new List<Node>();
+                if (nodeClone is DecoratorNode d) d.Child = null;
+                
+                treeClone.Nodes.Add(nodeClone);
+                nodeMap[node] = nodeClone;
+            }
+
+            // 2. Reconnect references
+            foreach (var original in Nodes)
+            {
+                if (original == null) continue;
+                
+                var clone = nodeMap[original];
+                
+                // Link Services
+                foreach (var service in original.Services)
+                {
+                    if (service != null && nodeMap.ContainsKey(service))
+                    {
+                        clone.Services.Add(nodeMap[service] as ServiceNode);
+                    }
+                }
+                
+                // Link Children (Composite)
+                if (original is CompositeNode composite)
+                {
+                    var compositeClone = clone as CompositeNode;
+                    foreach (var child in composite.Children)
+                    {
+                        if (child != null && nodeMap.ContainsKey(child))
+                        {
+                            compositeClone.Children.Add(nodeMap[child]);
+                            nodeMap[child].Parent = compositeClone;
+                        }
+                    }
+                }
+                
+                // Link Child (Decorator)
+                if (original is DecoratorNode decorator)
+                {
+                    var decoratorClone = clone as DecoratorNode;
+                    if (decorator.Child != null && nodeMap.ContainsKey(decorator.Child))
+                    {
+                        decoratorClone.Child = nodeMap[decorator.Child];
+                        nodeMap[decorator.Child].Parent = decoratorClone;
+                    }
+                }
+            }
+
+            // 3. Set Root
+            if (RootNode != null && nodeMap.ContainsKey(RootNode))
+            {
+                treeClone.RootNode = nodeMap[RootNode];
+            }
             
             // Clone sticky notes
-            clone.StickyNotes = new List<StickyNote>();
             if (StickyNotes != null)
             {
                 foreach (var note in StickyNotes)
                 {
-                    if (note != null) clone.StickyNotes.Add(Instantiate(note));
+                    if (note != null) treeClone.StickyNotes.Add(Instantiate(note));
                 }
             }
             
-            return clone;
+            return treeClone;
         }
         
         private void CollectNodes(Node node, List<Node> list)

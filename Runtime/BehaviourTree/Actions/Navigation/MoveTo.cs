@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Moves the agent to a target position using NavMeshAgent.
@@ -19,6 +19,9 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         }
 
         [Header("Target")]
+        [Tooltip("Optional: Connect a Vector3 here to override the Target Source.")]
+        [NodeInput] public Vector3 InputTarget;
+        
         public TargetSource Source = TargetSource.Blackboard;
 
         [Tooltip("Target provider for the destination (used if Source is Provider).")]
@@ -140,6 +143,13 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         
         private Vector3 GetTargetPosition()
         {
+            // Check Input Port override
+            var port = Ports.Find(p => p.Name == "InputTarget" && p.IsInput);
+            if (port != null && port.IsConnected)
+            {
+                return GetData<Vector3>("InputTarget");
+            }
+
             switch (Source)
             {
                 case TargetSource.Provider:

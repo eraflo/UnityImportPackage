@@ -1,12 +1,15 @@
 {
-    "name": "Eraflo.UnityImportPackage.Tests.Runtime",
-    "rootNamespace": "Eraflo.UnityImportPackage.Tests",
+    "name": "Eraflo.Catalyst.Tests.Editor",
+    "rootNamespace": "Eraflo.Catalyst.Tests.Editor",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.Catalyst.Runtime",
+        "Eraflo.Catalyst.Editor"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,

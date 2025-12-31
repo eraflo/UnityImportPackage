@@ -1,7 +1,7 @@
 using UnityEngine;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Samples.BehaviourTree
+namespace Eraflo.Catalyst.Samples.BehaviourTree
 {
     /// <summary>
     /// A simple demo script showing how to interact with the Behaviour Tree system from code.

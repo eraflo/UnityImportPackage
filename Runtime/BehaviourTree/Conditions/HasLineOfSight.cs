@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Checks if there is a clear line of sight to the target.
@@ -10,6 +10,9 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
     public class HasLineOfSight : ConditionNode
     {
         [Header("Target")]
+        [Tooltip("Optional: Connect a Vector3 here to override the Target Source.")]
+        [NodeInput] public Vector3 InputTarget;
+        
         [Tooltip("Target provider for the target to check.")]
         public TargetProvider Target;
         
@@ -83,6 +86,13 @@ namespace Eraflo.UnityImportPackage.BehaviourTree
         
         private Vector3 GetTargetPosition()
         {
+            // Check Input Port override
+            var port = Ports.Find(p => p.Name == "InputTarget" && p.IsInput);
+            if (port != null && port.IsConnected)
+            {
+                return GetData<Vector3>("InputTarget");
+            }
+
             if (Target != null)
                 return Target.GetTargetPosition(this);
             

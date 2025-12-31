@@ -1,8 +1,8 @@
 using System.IO;
 using UnityEngine;
-using Eraflo.UnityImportPackage.Networking;
+using Eraflo.Catalyst.Networking;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Synchronizes Behaviour Tree state across the network using the package's networking system.

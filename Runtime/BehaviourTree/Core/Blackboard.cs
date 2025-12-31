@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Eraflo.UnityImportPackage;
+using Eraflo.Catalyst;
 using Newtonsoft.Json;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// A shared data container for passing information between nodes in a behaviour tree.

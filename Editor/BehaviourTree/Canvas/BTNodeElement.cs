@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
-using BT = Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
+using BT = Eraflo.Catalyst.BehaviourTree.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
+namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
     /// <summary>
     /// Visual element representing a node in the behaviour tree.
@@ -14,6 +14,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
     {
         public System.Action<BTNodeElement> OnSelected;
         public System.Action<BTNodeElement> OnStartEdge;
+        public System.Action<BTNodeElement, BTPortElement> OnStartDataEdge;
         public System.Action<BTNodeElement> OnPositionChanged;
         
         public Node Node { get; private set; }
@@ -25,6 +26,8 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         private VisualElement _debugBadge;
         private Label _debugLabel;
         private VisualElement _serviceBadge;
+        private VisualElement _inputContainer;
+        private VisualElement _outputContainer;
         private BT _tree;
         
         private bool _isDragging;
@@ -49,10 +52,36 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
             _body.AddToClassList(GetNodeTypeClass());
             Add(_body);
             
+            // Initialise Ports (Runtime)
+            node.InitializePorts();
+            
+            // Input Container (Left)
+            _inputContainer = new VisualElement { name = "inputs" };
+            _inputContainer.AddToClassList("node-ports-container");
+            _inputContainer.AddToClassList("node-ports-left");
+            _body.Add(_inputContainer);
+            
             // Title
             _titleLabel = new Label(node.name) { name = "node-title" };
             _titleLabel.AddToClassList("node-title");
             _body.Add(_titleLabel);
+            
+            // Output Container (Right)
+            _outputContainer = new VisualElement { name = "outputs" };
+            _outputContainer.AddToClassList("node-ports-container");
+            _outputContainer.AddToClassList("node-ports-right");
+            _body.Add(_outputContainer);
+            
+            // Instantiate Ports
+            foreach (var port in node.Ports)
+            {
+                var portElem = new BTPortElement(port, node);
+                if (port.IsInput) _inputContainer.Add(portElem);
+                else _outputContainer.Add(portElem);
+                
+                // Register callback for edge creation
+                portElem.RegisterCallback<MouseDownEvent>(e => OnPortElementMouseDown(e, portElem));
+            }
             
             // Debug Badge
             _debugBadge = new VisualElement { name = "node-badge" };
@@ -267,5 +296,33 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree.Canvas
         {
             _titleLabel.text = Node.name;
         }
+
+        private void OnPortElementMouseDown(MouseDownEvent evt, BTPortElement portElem)
+        {
+            if (evt.button == 0)
+            {
+                OnStartDataEdge?.Invoke(this, portElem);
+                evt.StopPropagation();
+            }
+        }
+        
+        public BTPortElement GetPortElement(string portName)
+        {
+            // Search in inputs and outputs (using Linq implicitly via ToList)
+            var input = _inputContainer.Query<BTPortElement>().Build().First() as BTPortElement; 
+            // Query returns VisualElements, we need to iterate manually or cast carefully
+             
+            foreach (var child in _inputContainer.Children())
+            {
+                if (child is BTPortElement p && p.Port.Name == portName) return p;
+            }
+            foreach (var child in _outputContainer.Children())
+            {
+                if (child is BTPortElement p && p.Port.Name == portName) return p;
+            }
+            return null;
+        }
+
+
     }
 }

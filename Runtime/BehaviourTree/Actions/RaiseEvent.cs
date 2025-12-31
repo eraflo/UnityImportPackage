@@ -1,9 +1,9 @@
 using System;
 using System.Reflection;
 using UnityEngine;
-using Eraflo.UnityImportPackage.Events;
+using Eraflo.Catalyst.Events;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Raises any EventChannel type (including custom ones).

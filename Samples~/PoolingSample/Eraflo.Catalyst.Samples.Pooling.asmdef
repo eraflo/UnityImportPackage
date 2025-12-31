@@ -1,8 +1,8 @@
 {
-    "name": "Eraflo.UnityImportPackage.Samples.Pooling",
-    "rootNamespace": "Eraflo.UnityImportPackage.Samples.Pooling",
+    "name": "Eraflo.Catalyst.Samples.Pooling",
+    "rootNamespace": "Eraflo.Catalyst.Samples.Pooling",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.Catalyst.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

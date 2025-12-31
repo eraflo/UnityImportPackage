@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 using System.Linq;
-using BTNode = Eraflo.UnityImportPackage.BehaviourTree.Node;
+using BTNode = Eraflo.Catalyst.BehaviourTree.Node;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
+namespace Eraflo.Catalyst.Editor.BehaviourTree
 {
     /// <summary>
     /// Custom inspector for Node ScriptableObjects.
@@ -225,13 +225,13 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
             }
         }
         
-        private Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree FindTreeForNode(BTNode node)
+        private Eraflo.Catalyst.BehaviourTree.BehaviourTree FindTreeForNode(BTNode node)
         {
             string assetPath = AssetDatabase.GetAssetPath(node);
             if (string.IsNullOrEmpty(assetPath)) return null;
             
             var mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPath);
-            return mainAsset as Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+            return mainAsset as Eraflo.Catalyst.BehaviourTree.BehaviourTree;
         }
         
         private bool IsAncestor(BTNode potentialAncestor, BTNode node)

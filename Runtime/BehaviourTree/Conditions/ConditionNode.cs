@@ -1,4 +1,4 @@
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Base class for condition nodes that return Success or Failure (never Running).

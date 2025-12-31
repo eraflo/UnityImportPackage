@@ -1,21 +1,21 @@
 using UnityEngine;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
-using Eraflo.UnityImportPackage.Editor.BehaviourTree.Window;
-using BTNode = Eraflo.UnityImportPackage.BehaviourTree.Node;
+using Eraflo.Catalyst.BehaviourTree;
+using Eraflo.Catalyst.Editor.BehaviourTree.Window;
+using BTNode = Eraflo.Catalyst.BehaviourTree.Node;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
+namespace Eraflo.Catalyst.Editor.BehaviourTree
 {
     /// <summary>
     /// Custom inspector for BehaviourTree ScriptableObjects.
     /// Shows tree structure and allows basic editing.
     /// </summary>
-    [CustomEditor(typeof(Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree))]
+    [CustomEditor(typeof(Eraflo.Catalyst.BehaviourTree.BehaviourTree))]
     public class BehaviourTreeEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {
-            var tree = target as Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree;
+            var tree = target as Eraflo.Catalyst.BehaviourTree.BehaviourTree;
             
             EditorGUILayout.Space();
             
@@ -136,7 +136,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
             GUI.color = Color.white;
         }
         
-        private void CreateNode<T>(Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree tree) where T : BTNode
+        private void CreateNode<T>(Eraflo.Catalyst.BehaviourTree.BehaviourTree tree) where T : BTNode
         {
             Undo.RecordObject(tree, $"Create {typeof(T).Name}");
             var node = tree.CreateNode(typeof(T));
@@ -149,7 +149,7 @@ namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
             Selection.activeObject = node;
         }
         
-        private void DeleteAllNodes(Eraflo.UnityImportPackage.BehaviourTree.BehaviourTree tree)
+        private void DeleteAllNodes(Eraflo.Catalyst.BehaviourTree.BehaviourTree tree)
         {
             Undo.RecordObject(tree, "Delete All Nodes");
             

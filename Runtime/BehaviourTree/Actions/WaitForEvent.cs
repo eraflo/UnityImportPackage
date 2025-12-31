@@ -1,8 +1,8 @@
 using UnityEngine;
-using Eraflo.UnityImportPackage.Events;
-using Eraflo.UnityImportPackage.Timers;
+using Eraflo.Catalyst.Events;
+using Eraflo.Catalyst.Timers;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree
+namespace Eraflo.Catalyst.BehaviourTree
 {
     /// <summary>
     /// Waits until an EventChannel is raised.

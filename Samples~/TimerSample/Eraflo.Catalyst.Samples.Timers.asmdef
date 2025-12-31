@@ -1,8 +1,8 @@
 {
-    "name": "Eraflo.UnityImportPackage.Samples.EventBus",
-    "rootNamespace": "Eraflo.UnityImportPackage.Samples.Events",
+    "name": "Eraflo.Catalyst.Samples.Timers",
+    "rootNamespace": "Eraflo.Catalyst.Samples.Timers",
     "references": [
-        "Eraflo.UnityImportPackage.Runtime"
+        "Eraflo.Catalyst.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,6 +1,6 @@
 {
-    "name": "Eraflo.UnityImportPackage.Runtime",
-    "rootNamespace": "Eraflo.UnityImportPackage",
+    "name": "Eraflo.Catalyst.Runtime",
+    "rootNamespace": "Eraflo.Catalyst",
     "references": [
         "Unity.Nuget.Newtonsoft-Json",
         "Unity.Addressables",

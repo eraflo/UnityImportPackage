@@ -1,9 +1,9 @@
 using UnityEngine;
 using UnityEditor;
-using Eraflo.UnityImportPackage.BehaviourTree;
-using Eraflo.UnityImportPackage.Editor.BehaviourTree.Window;
+using Eraflo.Catalyst.BehaviourTree;
+using Eraflo.Catalyst.Editor.BehaviourTree.Window;
 
-namespace Eraflo.UnityImportPackage.Editor.BehaviourTree
+namespace Eraflo.Catalyst.Editor.BehaviourTree
 {
     /// <summary>
     /// Custom inspector for BehaviourTreeRunner MonoBehaviour.

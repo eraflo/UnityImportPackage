@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 
-namespace Eraflo.UnityImportPackage.BehaviourTree.Editor
+namespace Eraflo.Catalyst.BehaviourTree.Editor
 {
     /// <summary>
     /// Custom editor for BlackboardConditional to show only relevant value field.

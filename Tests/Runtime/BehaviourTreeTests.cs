@@ -2,9 +2,9 @@ using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using Eraflo.UnityImportPackage.BehaviourTree;
+using Eraflo.Catalyst.BehaviourTree;
 
-namespace Eraflo.UnityImportPackage.Tests.Runtime
+namespace Eraflo.Catalyst.Tests.Runtime
 {
     public class BehaviourTreeTests
     {
