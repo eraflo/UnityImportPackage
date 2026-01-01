@@ -32,7 +32,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         public string StringValue;
         
         /// <summary>Defines how this condition can abort running nodes.</summary>
-        public AbortType Abort = AbortType.None;
+        public AbortType AbortMode = AbortType.None;
         
         public enum AbortType
         {
@@ -63,7 +63,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         
         protected override void OnStart()
         {
-            if (Abort != AbortType.None && !string.IsNullOrEmpty(Key) && Blackboard != null)
+            if (AbortMode != AbortType.None && !string.IsNullOrEmpty(Key) && Blackboard != null)
             {
                 Blackboard.RegisterListener(Key, OnBlackboardChanged);
             }
@@ -71,7 +71,7 @@ namespace Eraflo.Catalyst.BehaviourTree
 
         protected override void OnStop()
         {
-            if (Abort != AbortType.None && !string.IsNullOrEmpty(Key) && Blackboard != null)
+            if (AbortMode != AbortType.None && !string.IsNullOrEmpty(Key) && Blackboard != null)
             {
                 Blackboard.UnregisterListener(Key, OnBlackboardChanged);
             }
@@ -79,17 +79,17 @@ namespace Eraflo.Catalyst.BehaviourTree
 
         private void OnBlackboardChanged(object oldVal, object newVal)
         {
-            if (Abort == AbortType.None || Tree == null) return;
+            if (AbortMode == AbortType.None || Tree == null) return;
             
             bool resultNow = CheckCondition();
             
             // Case 1: We are NOT running, but condition becomes true -> Abort lower priority
-            if (!Started && resultNow && (Abort == AbortType.LowerPriority || Abort == AbortType.Both))
+            if (!Started && resultNow && (AbortMode == AbortType.LowerPriority || AbortMode == AbortType.Both))
             {
                 Tree.RequestAbort(this);
             }
             // Case 2: We ARE running, but condition becomes false -> Abort self
-            else if (Started && !resultNow && (Abort == AbortType.Self || Abort == AbortType.Both))
+            else if (Started && !resultNow && (AbortMode == AbortType.Self || AbortMode == AbortType.Both))
             {
                 Tree.RequestAbort(this);
             }

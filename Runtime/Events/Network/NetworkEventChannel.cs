@@ -33,7 +33,7 @@ namespace Eraflo.Catalyst.Events
             }
         }
 
-        protected virtual void OnDisable()
+        protected new virtual void OnDisable()
         {
             _handler?.Unregister(ChannelId);
             _handler = null;
@@ -97,7 +97,7 @@ namespace Eraflo.Catalyst.Events
             }
         }
 
-        protected virtual void OnDisable()
+        protected new virtual void OnDisable()
         {
             _handler?.Unregister(ChannelId);
             _handler = null;
