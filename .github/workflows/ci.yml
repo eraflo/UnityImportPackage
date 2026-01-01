@@ -80,11 +80,11 @@ jobs:
           cat > TestProject/Packages/manifest.json << 'EOF'
           {
             "dependencies": {
-              "com.eraflo.unityimportpackage": "file:../../package",
+              "com.eraflo.catalyst": "file:../../package",
               "com.unity.test-framework": "1.3.9"
             },
             "testables": [
-              "com.eraflo.unityimportpackage"
+              "com.eraflo.catalyst"
             ]
           }
           EOF
