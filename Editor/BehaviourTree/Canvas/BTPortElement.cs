@@ -21,18 +21,23 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             AddToClassList("bt-port");
             AddToClassList(port.IsInput ? "input" : "output");
             
+            // Connected state
+            if (port.IsConnected)
+            {
+                AddToClassList("connected");
+            }
+            
             // Handle (The circle)
             _handle = new VisualElement { name = "port-handle" };
             _handle.AddToClassList("port-handle");
+            _handle.AddToClassList(GetTypeClass(port.DataType));
             
-            // Color by type
-            _handle.style.backgroundColor = GetTypeColor(port.DataType);
-            
-            // Label
-            _label = new Label(port.Name);
+            // Label - show abbreviated name if too long
+            string displayName = port.Name.Length > 6 ? port.Name.Substring(0, 5) + "…" : port.Name;
+            _label = new Label(displayName);
             _label.AddToClassList("port-label");
             
-            // Layout
+            // Layout based on input/output
             if (port.IsInput)
             {
                 Add(_handle);
@@ -44,27 +49,36 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
                 Add(_handle);
             }
             
-            // Tooltip
-            tooltip = $"{port.Name} ({port.DataType.Name})";
+            // Tooltip with full info
+            tooltip = $"{port.Name}\n{port.DataType.Name}";
         }
         
         public Vector2 GetHandlePosition()
         {
-            // Calculate world position of the center of the handle
             return _handle.worldBound.center;
         }
         
         public VisualElement GetHandle() => _handle;
         
-        private Color GetTypeColor(System.Type type)
+        /// <summary>
+        /// Updates the connected state visual.
+        /// </summary>
+        public void UpdateConnectedState()
         {
-            if (type == typeof(bool)) return new Color(1f, 0.4f, 0.4f); // Red
-            if (type == typeof(float) || type == typeof(int)) return new Color(0.4f, 0.8f, 1f); // Blue
-            if (type == typeof(string)) return new Color(1f, 0.8f, 0.4f); // Yellow
-            if (type == typeof(Vector3) || type == typeof(Vector2)) return new Color(0.6f, 1f, 0.6f); // Green
-            if (type == typeof(GameObject) || type == typeof(Transform)) return new Color(0.8f, 0.4f, 1f); // Purple
-            
-            return new Color(0.8f, 0.8f, 0.8f); // Gray generic
+            if (Port.IsConnected)
+                AddToClassList("connected");
+            else
+                RemoveFromClassList("connected");
+        }
+        
+        private string GetTypeClass(System.Type type)
+        {
+            if (type == typeof(bool)) return "type-bool";
+            if (type == typeof(float) || type == typeof(int)) return "type-number";
+            if (type == typeof(string)) return "type-string";
+            if (type == typeof(Vector3) || type == typeof(Vector2)) return "type-vector";
+            if (type == typeof(GameObject) || type == typeof(Transform)) return "type-object";
+            return "type-generic";
         }
     }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor;
+using UnityEditor.Callbacks;
 using Eraflo.Catalyst.BehaviourTree;
 using System;
 using System.Collections.Generic;
@@ -20,15 +21,28 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         private Vector2 _createPosition;
         private TextField _searchField;
         private ScrollView _resultsScrollView;
-        private List<NodeTypeInfo> _allNodeTypes;
         private List<NodeTypeInfo> _filteredTypes;
         private Type _baseTypeFilter = typeof(Node);
+        
+        // OPTIMIZATION: Static cache shared across all instances
+        private static List<NodeTypeInfo> _allNodeTypes;
+        private static bool _cacheBuilt = false;
         
         private struct NodeTypeInfo
         {
             public Type Type;
             public string DisplayName;
             public string Category;
+        }
+        
+        /// <summary>
+        /// Invalidates the static node type cache when scripts are reloaded.
+        /// </summary>
+        [DidReloadScripts]
+        private static void OnScriptsReloaded()
+        {
+            _cacheBuilt = false;
+            _allNodeTypes = null;
         }
         
         public BTSearchWindow()
@@ -73,6 +87,13 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         
         private void BuildNodeTypeCache()
         {
+            // OPTIMIZATION: Skip if cache is already built
+            if (_cacheBuilt && _allNodeTypes != null)
+            {
+                _filteredTypes = new List<NodeTypeInfo>(_allNodeTypes);
+                return;
+            }
+            
             _allNodeTypes = new List<NodeTypeInfo>();
             
             var nodeBaseType = typeof(Node);
@@ -103,6 +124,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             
             _allNodeTypes = _allNodeTypes.OrderBy(n => n.Category).ThenBy(n => n.DisplayName).ToList();
             _filteredTypes = new List<NodeTypeInfo>(_allNodeTypes);
+            _cacheBuilt = true;
         }
         
         private string GetCategory(Type type)

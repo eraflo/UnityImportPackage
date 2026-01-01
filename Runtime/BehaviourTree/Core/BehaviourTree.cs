@@ -37,6 +37,10 @@ namespace Eraflo.Catalyst.BehaviourTree
         
         private bool _abortRequested = false;
         
+        // OPTIMIZATION: GUID-to-Node index for O(1) lookups instead of O(n) list search
+        [System.NonSerialized] private Dictionary<string, Node> _nodeGuidIndex;
+        [System.NonSerialized] private bool _guidIndexDirty = true;
+        
         /// <summary>
         /// Evaluates the tree, starting from the root node.
         /// </summary>
@@ -65,6 +69,52 @@ namespace Eraflo.Catalyst.BehaviourTree
         }
         
         public bool IsAbortRequested() => _abortRequested;
+        
+        /// <summary>
+        /// Gets a node by its GUID with O(1) lookup.
+        /// OPTIMIZED: Uses dictionary index instead of list search.
+        /// </summary>
+        /// <param name="guid">The GUID of the node to find.</param>
+        /// <returns>The node with the specified GUID, or null if not found.</returns>
+        public Node GetNodeByGuid(string guid)
+        {
+            if (string.IsNullOrEmpty(guid)) return null;
+            
+            if (_guidIndexDirty || _nodeGuidIndex == null)
+            {
+                RebuildGuidIndex();
+            }
+            
+            return _nodeGuidIndex.TryGetValue(guid, out var node) ? node : null;
+        }
+        
+        /// <summary>
+        /// Rebuilds the GUID-to-Node index. Call after adding/removing nodes.
+        /// </summary>
+        public void RebuildGuidIndex()
+        {
+            _nodeGuidIndex ??= new Dictionary<string, Node>();
+            _nodeGuidIndex.Clear();
+            
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                var node = Nodes[i];
+                if (node != null && !string.IsNullOrEmpty(node.Guid))
+                {
+                    _nodeGuidIndex[node.Guid] = node;
+                }
+            }
+            
+            _guidIndexDirty = false;
+        }
+        
+        /// <summary>
+        /// Marks the GUID index as dirty, requiring rebuild on next access.
+        /// </summary>
+        public void InvalidateGuidIndex()
+        {
+            _guidIndexDirty = true;
+        }
         
         /// <summary>
         /// Binds this tree to a GameObject owner.

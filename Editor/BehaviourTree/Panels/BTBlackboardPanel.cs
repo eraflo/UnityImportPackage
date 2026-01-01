@@ -45,6 +45,13 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             style.width = w;
             style.height = h;
             
+            // Restore visibility
+            bool visible = EditorPrefs.GetBool("BT_Blackboard_Visible", true);
+            style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            
+            // Clamp position when parent resizes
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            
             // Header
             var header = new VisualElement { name = "panel-header" };
             header.AddToClassList("panel-header");
@@ -81,6 +88,40 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             resizeHandle.RegisterCallback<MouseDownEvent>(OnResizeMouseDown);
             resizeHandle.RegisterCallback<MouseMoveEvent>(OnResizeMouseMove);
             resizeHandle.RegisterCallback<MouseUpEvent>(OnResizeMouseUp);
+            
+            // IMPORTANT: Block all mouse events from reaching elements underneath
+            RegisterCallback<MouseDownEvent>(evt => {
+                BringToFront();
+                evt.StopPropagation();
+            });
+            RegisterCallback<MouseUpEvent>(evt => evt.StopPropagation());
+            RegisterCallback<MouseMoveEvent>(evt => evt.StopPropagation());
+            RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
+        }
+        
+        private void OnGeometryChanged(GeometryChangedEvent evt)
+        {
+            // Only clamp when PARENT size changes, not when our own position changes
+            if (parent == null) return;
+            
+            var parentRect = parent.contentRect;
+            if (parentRect.width <= 0 || parentRect.height <= 0) return;
+            
+            float x = resolvedStyle.left;
+            float y = resolvedStyle.top;
+            float w = resolvedStyle.width;
+            
+            // Ensure at least 50px of the panel is visible
+            float minVisible = 50f;
+            float newX = Mathf.Clamp(x, -w + minVisible, parentRect.width - minVisible);
+            float newY = Mathf.Clamp(y, 0, parentRect.height - minVisible);
+            
+            // Only update if values actually changed (prevents infinite loop)
+            if (Mathf.Abs(newX - x) > 0.1f || Mathf.Abs(newY - y) > 0.1f)
+            {
+                style.left = newX;
+                style.top = newY;
+            }
         }
         
         public void UpdateView(BT tree)
@@ -364,6 +405,14 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
         {
             if (_isDragging)
             {
+                // Safety: release if mouse button is no longer pressed
+                if (evt.pressedButtons == 0)
+                {
+                    _isDragging = false;
+                    evt.target.ReleaseMouse();
+                    return;
+                }
+                
                 Vector2 delta = evt.mousePosition - _dragStart;
                 style.left = _posStart.x + delta.x;
                 style.top = _posStart.y + delta.y;
@@ -398,6 +447,14 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
         {
             if (_isResizing)
             {
+                // Safety: release if mouse button is no longer pressed
+                if (evt.pressedButtons == 0)
+                {
+                    _isResizing = false;
+                    evt.target.ReleaseMouse();
+                    return;
+                }
+                
                 Vector2 delta = evt.mousePosition - _resizeStartPos;
                 style.width = Mathf.Max(150, _panelStartSize.x + delta.x);
                 style.height = Mathf.Max(100, _panelStartSize.y + delta.y);

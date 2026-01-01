@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using Eraflo.Catalyst.BehaviourTree;
+using Eraflo.Catalyst.Editor.BehaviourTree.Utils;
 
 namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
@@ -60,12 +61,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             var startPos = parent.WorldToLocal(startWorld);
             var endPos = parent.WorldToLocal(endWorld);
             
-            // Adjust bounds
-            float padding = 50f;
-            float xMin = Mathf.Min(startPos.x, endPos.x) - padding;
-            float yMin = Mathf.Min(startPos.y, endPos.y) - padding;
-            float width = Mathf.Abs(endPos.x - startPos.x) + padding * 2;
-            float height = Mathf.Abs(endPos.y - startPos.y) + padding * 2;
+            var (xMin, yMin, width, height) = BezierUtils.GetCurveBounds(startPos, endPos, 50f);
             
             style.left = xMin;
             style.top = yMin;
@@ -104,13 +100,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             painter.BeginPath();
             painter.MoveTo(startPos);
             
-            // Horizontal Bezier
-            float dist = Mathf.Abs(endPos.x - startPos.x);
-            float tangentStrength = Mathf.Min(dist * 0.5f, 100f);
-            
-            // Curve out to right, in from left
-            var cp1 = startPos + new Vector2(tangentStrength, 0);
-            var cp2 = endPos - new Vector2(tangentStrength, 0);
+            var (cp1, cp2) = BezierUtils.GetHorizontalControlPoints(startPos, endPos);
             
             painter.BezierCurveTo(cp1, cp2, endPos);
             painter.Stroke();
@@ -143,41 +133,12 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             var startPos = fromPortElem.GetHandlePosition();
             var endPos = toPortElem.GetHandlePosition();
             
-            float dist = Mathf.Abs(endPos.x - startPos.x);
-            float tangentStrength = Mathf.Min(dist * 0.5f, 100f);
-            var cp1 = startPos + new Vector2(tangentStrength, 0);
-            var cp2 = endPos - new Vector2(tangentStrength, 0);
+            var (cp1, cp2) = BezierUtils.GetHorizontalControlPoints(startPos, endPos);
             
-            const int samples = 20;
-            float minDistanceSq = float.MaxValue;
-            Vector2 lastPoint = startPos;
-            
-            for (int i = 1; i <= samples; i++)
-            {
-                float t = i / (float)samples;
-                Vector2 currentPoint = GetBezierPoint(startPos, cp1, cp2, endPos, t);
-                 
-                float distSq = DistancePointToSegmentSq(worldPos, lastPoint, currentPoint);
-                if (distSq < minDistanceSq) minDistanceSq = distSq;
-                lastPoint = currentPoint;
-            }
-            
-            return minDistanceSq < 100f; // 10px radius
+            return BezierUtils.IsPointNearCurve(worldPos, startPos, cp1, cp2, endPos, 100f, 20);
         }
         
-        private Vector2 GetBezierPoint(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
-        {
-            float u = 1 - t;
-            return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-        }
-
-        private float DistancePointToSegmentSq(Vector2 p, Vector2 a, Vector2 b)
-        {
-            float l2 = (a - b).sqrMagnitude;
-            if (l2 == 0) return (p - a).sqrMagnitude;
-            float t = Mathf.Clamp01(Vector2.Dot(p - a, b - a) / l2);
-            return (p - (a + t * (b - a))).sqrMagnitude;
-        }
+        // Bezier methods moved to BezierUtils
 
         private Color GetTypeColor(System.Type type)
         {

@@ -51,6 +51,13 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             style.height = h;
             pickingMode = PickingMode.Position;
             
+            // Restore visibility
+            bool visible = EditorPrefs.GetBool("BT_Inspector_Visible", true);
+            style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            
+            // Clamp position when parent resizes
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            
             // Header
             _header = new VisualElement { name = "panel-header" };
             _header.AddToClassList("panel-header");
@@ -86,11 +93,39 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             resizeHandle.RegisterCallback<MouseMoveEvent>(OnResizeMouseMove);
             resizeHandle.RegisterCallback<MouseUpEvent>(OnResizeMouseUp);
             
-            // IMPORTANT: Stop ALL mouse events from reaching the canvas underneath
-            RegisterCallback<MouseDownEvent>(evt => evt.StopPropagation());
+            // IMPORTANT: Stop ALL mouse events from reaching elements underneath
+            RegisterCallback<MouseDownEvent>(evt => {
+                BringToFront();
+                evt.StopPropagation();
+            });
             RegisterCallback<MouseUpEvent>(evt => evt.StopPropagation());
             RegisterCallback<MouseMoveEvent>(evt => evt.StopPropagation());
             RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
+        }
+        
+        private void OnGeometryChanged(GeometryChangedEvent evt)
+        {
+            // Only clamp when PARENT size changes, not when our own position changes
+            if (parent == null) return;
+            
+            var parentRect = parent.contentRect;
+            if (parentRect.width <= 0 || parentRect.height <= 0) return;
+            
+            float x = resolvedStyle.left;
+            float y = resolvedStyle.top;
+            float w = resolvedStyle.width;
+            
+            // Ensure at least 50px of the panel is visible
+            float minVisible = 50f;
+            float newX = Mathf.Clamp(x, -w + minVisible, parentRect.width - minVisible);
+            float newY = Mathf.Clamp(y, 0, parentRect.height - minVisible);
+            
+            // Only update if values actually changed (prevents infinite loop)
+            if (Mathf.Abs(newX - x) > 0.1f || Mathf.Abs(newY - y) > 0.1f)
+            {
+                style.left = newX;
+                style.top = newY;
+            }
         }
         
         public void UpdateSelection(Node node)

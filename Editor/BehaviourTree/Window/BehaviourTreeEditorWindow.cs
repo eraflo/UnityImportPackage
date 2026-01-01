@@ -146,6 +146,24 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Window
             spacer.AddToClassList("toolbar-spacer");
             toolbar.Add(spacer);
             
+            // Panel toggle buttons
+            var blackboardToggle = new Button(() => ToggleBlackboardPanel()) { text = "📋" };
+            blackboardToggle.AddToClassList("toolbar-button");
+            blackboardToggle.AddToClassList("toolbar-toggle");
+            blackboardToggle.tooltip = "Toggle Blackboard Panel";
+            toolbar.Add(blackboardToggle);
+            
+            var inspectorToggle = new Button(() => ToggleInspectorPanel()) { text = "🔍" };
+            inspectorToggle.AddToClassList("toolbar-button");
+            inspectorToggle.AddToClassList("toolbar-toggle");
+            inspectorToggle.tooltip = "Toggle Inspector Panel";
+            toolbar.Add(inspectorToggle);
+            
+            // Separator
+            var sep = new VisualElement();
+            sep.AddToClassList("toolbar-separator");
+            toolbar.Add(sep);
+            
             // New tree
             var newBtn = new Button(() => CreateNewTree()) { text = "New Tree" };
             newBtn.AddToClassList("toolbar-button");
@@ -157,6 +175,22 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Window
             toolbar.Add(saveBtn);
             
             return toolbar;
+        }
+        
+        private void ToggleBlackboardPanel()
+        {
+            if (_blackboardPanel == null) return;
+            bool visible = _blackboardPanel.style.display == DisplayStyle.Flex;
+            _blackboardPanel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+            EditorPrefs.SetBool("BT_Blackboard_Visible", !visible);
+        }
+        
+        private void ToggleInspectorPanel()
+        {
+            if (_inspectorPanel == null) return;
+            bool visible = _inspectorPanel.style.display == DisplayStyle.Flex;
+            _inspectorPanel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+            EditorPrefs.SetBool("BT_Inspector_Visible", !visible);
         }
         
         private void ShowTreeMenu()

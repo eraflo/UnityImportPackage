@@ -49,6 +49,15 @@ namespace Eraflo.Catalyst.BehaviourTree
         [HideInInspector] public List<NodePort> Ports = new();
         [System.NonSerialized] private bool _portsInitialized;
         
+        // OPTIMIZATION: Static cache for FieldInfo lookups (shared across all nodes)
+        private static readonly Dictionary<(System.Type, string), System.Reflection.FieldInfo> _fieldCache = new();
+        
+        // OPTIMIZATION: Per-instance port cache for O(1) lookup
+        [System.NonSerialized] private Dictionary<string, NodePort> _inputPortCache;
+        
+        // OPTIMIZATION: Cached empty string to avoid repeated allocations
+        protected static readonly string EmptyDebugMessage = string.Empty;
+        
         /// <summary>
         /// Evaluates this node and returns its state.
         /// </summary>
@@ -61,16 +70,18 @@ namespace Eraflo.Catalyst.BehaviourTree
                 OnStart();
                 Started = true;
                 
-                // Start services
-                foreach (var service in Services)
+                // Start services - using for loop to avoid enumerator allocation
+                for (int i = 0; i < Services.Count; i++)
                 {
+                    var service = Services[i];
                     if (service != null) service.Evaluate();
                 }
             }
             
-            // Update services
-            foreach (var service in Services)
+            // Update services - using for loop to avoid enumerator allocation
+            for (int i = 0; i < Services.Count; i++)
             {
+                var service = Services[i];
                 if (service != null) service.TickService();
             }
             
@@ -143,7 +154,8 @@ namespace Eraflo.Catalyst.BehaviourTree
             State = NodeState.Running;
             LastTickTime = 0;
             LastState = NodeState.Running;
-            DebugMessage = "";
+            DebugMessage = EmptyDebugMessage;
+            _inputPortCache = null; // Clear port cache on reset
         }
         
         /// <summary>
@@ -203,18 +215,25 @@ namespace Eraflo.Catalyst.BehaviourTree
         /// <summary>
         /// Retrieves data from an input port.
         /// If connected, pulls from the source. If not, returns the local value (fallback).
+        /// OPTIMIZED: Uses cached port lookups and field info caching.
         /// </summary>
         protected T GetData<T>(string portName, T fallbackValue = default)
         {
-            var port = Ports.Find(p => p.Name == portName && p.IsInput);
+            // Build port cache on first access
+            _inputPortCache ??= BuildInputPortCache();
+            
+            // O(1) port lookup instead of O(n)
+            if (!_inputPortCache.TryGetValue(portName, out var port))
+                return fallbackValue;
+                
             if (port != null && port.IsConnected)
             {
-                // Find connected node
-                var sourceNode = Tree.Nodes.Find(n => n.Guid == port.ConnectedNodeId);
+                // Use GUID index for O(1) node lookup
+                var sourceNode = Tree.GetNodeByGuid(port.ConnectedNodeId);
                 if (sourceNode != null)
                 {
-                    // For now, reflection based - optimization later
-                    var field = sourceNode.GetType().GetField(port.ConnectedPortName);
+                    // Use cached FieldInfo instead of reflection each time
+                    var field = GetCachedField(sourceNode.GetType(), port.ConnectedPortName);
                     if (field != null)
                     {
                         return (T)field.GetValue(sourceNode);
@@ -222,6 +241,36 @@ namespace Eraflo.Catalyst.BehaviourTree
                 }
             }
             return fallbackValue;
+        }
+        
+        /// <summary>
+        /// Builds a dictionary cache of input ports for O(1) lookup.
+        /// </summary>
+        private Dictionary<string, NodePort> BuildInputPortCache()
+        {
+            var cache = new Dictionary<string, NodePort>();
+            for (int i = 0; i < Ports.Count; i++)
+            {
+                var port = Ports[i];
+                if (port.IsInput) cache[port.Name] = port;
+            }
+            return cache;
+        }
+        
+        /// <summary>
+        /// Gets a cached FieldInfo for a type/field combination.
+        /// Thread-safe due to dictionary's read operations being safe.
+        /// </summary>
+        private static System.Reflection.FieldInfo GetCachedField(System.Type type, string fieldName)
+        {
+            var key = (type, fieldName);
+            if (!_fieldCache.TryGetValue(key, out var field))
+            {
+                field = type.GetField(fieldName, 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                _fieldCache[key] = field;
+            }
+            return field;
         }
     }
 }

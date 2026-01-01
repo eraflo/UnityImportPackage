@@ -17,6 +17,11 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         private const float MapSize = 200f; // Matches CSS width
         private Rect _treeBounds;
         
+        // OPTIMIZATION: Cache previous state to detect changes
+        private Rect _lastTreeBounds;
+        private int _lastNodeCount;
+        private bool _isDirty = true;
+        
         public BTMinimapElement(BTCanvas canvas)
         {
             _canvas = canvas;
@@ -45,13 +50,31 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         public void UpdateMinimap()
         {
             if (_canvas == null || _isUpdating) return;
+            
+            // OPTIMIZATION: Quick check if full update is needed
+            var currentBounds = _canvas.GetTreeBounds();
+            var nodes = _canvas.GetNodes();
+            int currentNodeCount = nodes.Count;
+            
+            // If nothing significant changed, just update viewport (lightweight)
+            if (!_isDirty && 
+                currentBounds == _lastTreeBounds && 
+                currentNodeCount == _lastNodeCount)
+            {
+                UpdateViewportRect();
+                return;
+            }
+            
             _isUpdating = true;
             try {
             
-            // 1. Get bounds from canvas
-            _treeBounds = _canvas.GetTreeBounds();
+            // Cache current state
+            _lastTreeBounds = currentBounds;
+            _lastNodeCount = currentNodeCount;
+            _isDirty = false;
             
-            // Add some padding to bounds
+            // 1. Calculate bounds with padding
+            _treeBounds = currentBounds;
             float padding = 200f;
             _treeBounds.x -= padding;
             _treeBounds.y -= padding;
@@ -66,6 +89,14 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             } finally {
                 _isUpdating = false;
             }
+        }
+        
+        /// <summary>
+        /// Marks the minimap as dirty, forcing a full refresh on next update.
+        /// </summary>
+        public void MarkDirty()
+        {
+            _isDirty = true;
         }
         
         private void UpdateNodeDots()

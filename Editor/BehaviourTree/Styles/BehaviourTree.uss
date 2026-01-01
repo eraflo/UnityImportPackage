@@ -24,17 +24,21 @@
 
 /* Data Ports Containers */
 .node-ports-container {
-    padding-top: 20px;
-    justify-content: center;
+    padding-top: 8px;
+    padding-bottom: 4px;
+    justify-content: flex-start;
+    min-width: 24px;
 }
 
 .node-ports-left {
-    margin-right: 8px;
+    margin-right: 4px;
+    margin-left: -6px; /* Extend slightly outside node */
     align-items: flex-start;
 }
 
 .node-ports-right {
-    margin-left: 8px;
+    margin-left: 4px;
+    margin-right: -6px; /* Extend slightly outside node */
     align-items: flex-end;
 }
 
@@ -42,38 +46,95 @@
 .bt-port {
     flex-direction: row;
     align-items: center;
-    margin-bottom: 4px;
-    height: 18px;
+    margin-bottom: 3px;
+    height: 16px;
+    padding: 1px 2px;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.bt-port:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .bt-port.input {
     justify-content: flex-start;
+    flex-direction: row;
 }
 
 .bt-port.output {
     justify-content: flex-end;
+    flex-direction: row-reverse;
 }
 
+/* Port Handle - Modern pill shape */
 .port-handle {
-    width: 10px;
-    height: 10px;
-    border-radius: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
     background-color: #888;
-    border-width: 1px;
-    border-color: rgba(255,255,255,0.5);
-    margin: 0 4px;
+    border-width: 1.5px;
+    border-color: rgba(0, 0, 0, 0.4);
+    margin: 0 3px;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+    flex-shrink: 0;
 }
 
 .port-handle:hover {
     border-color: white;
-    transform-origin: center;
-    scale: 1.2;
+    transform: scale(1.3);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
+/* Connected port indicator */
+.bt-port.connected .port-handle {
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+}
+
+/* Port Label - Compact */
 .port-label {
-    font-size: 10px;
-    color: #ccc;
+    font-size: 9px;
+    color: rgba(200, 200, 200, 0.9);
     padding: 0;
+    max-width: 45px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -unity-text-overflow-position: end;
+    white-space: nowrap;
+}
+
+.bt-port.input .port-label {
+    margin-left: 1px;
+}
+
+.bt-port.output .port-label {
+    margin-right: 1px;
+}
+
+/* Port Type Indicators - Color coding */
+.port-handle.type-bool {
+    background-color: #e74c3c; /* Red */
+}
+
+.port-handle.type-number {
+    background-color: #3498db; /* Blue */
+}
+
+.port-handle.type-string {
+    background-color: #f39c12; /* Orange */
+}
+
+.port-handle.type-vector {
+    background-color: #2ecc71; /* Green */
+}
+
+.port-handle.type-object {
+    background-color: #9b59b6; /* Purple */
+}
+
+.port-handle.type-generic {
+    background-color: #95a5a6; /* Gray */
 }
 
 .node-title {
@@ -326,6 +387,34 @@
 
 .toolbar-spacer {
     flex-grow: 1;
+}
+
+.toolbar-toggle {
+    padding: 4px 10px;
+    min-width: 32px;
+    background-color: rgba(60, 60, 60, 0.8);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    font-size: 14px;
+}
+
+.toolbar-toggle:hover {
+    background-color: rgba(80, 140, 200, 0.6);
+    border-color: rgba(100, 160, 220, 0.5);
+}
+
+.toolbar-toggle:active {
+    background-color: rgba(60, 120, 180, 0.8);
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.12);
+    margin-left: 10px;
+    margin-right: 10px;
+    align-self: center;
 }
 
 /* ============================================

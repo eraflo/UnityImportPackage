@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using Eraflo.Catalyst.Editor.BehaviourTree.Utils;
 
 namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 {
@@ -85,24 +86,18 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             var startPos = FromNode.GetOutputPortCenter();
             var endPos = ToNode.GetInputCenter();
             
-            float xMin = Mathf.Min(startPos.x, endPos.x) - 20;
-            float yMin = Mathf.Min(startPos.y, endPos.y) - 20;
-            float xMax = Mathf.Max(startPos.x, endPos.x) + 20;
-            float yMax = Mathf.Max(startPos.y, endPos.y) + 20;
+            var (xMin, yMin, width, height) = BezierUtils.GetCurveBounds(startPos, endPos);
             
             style.left = xMin;
             style.top = yMin;
-            style.width = xMax - xMin;
-            style.height = yMax - yMin;
+            style.width = width;
+            style.height = height;
             
             // Update index label position (middle of the curve)
             if (_indexLabel.resolvedStyle.display == DisplayStyle.Flex)
             {
-                float yDistance = Mathf.Abs(endPos.y - startPos.y);
-                float controlOffset = Mathf.Min(yDistance * 0.5f, 50f);
-                var cp1 = new Vector2(startPos.x, startPos.y + controlOffset);
-                var cp2 = new Vector2(endPos.x, endPos.y - controlOffset);
-                var center = GetBezierPoint(startPos, cp1, cp2, endPos, 0.5f);
+                var (cp1, cp2) = BezierUtils.GetVerticalControlPoints(startPos, endPos);
+                var center = BezierUtils.GetBezierPoint(startPos, cp1, cp2, endPos, 0.5f);
                 
                 // Position relative to edge element
                 var localCenter = center - new Vector2(xMin, yMin);
@@ -119,50 +114,18 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         {
             if (FromNode == null || ToNode == null) return false;
             
-            // Convert local back to parent space for calculations (or use relative)
+            // Convert local back to parent space for calculations
             Vector2 worldPos = localPoint + new Vector2(resolvedStyle.left, resolvedStyle.top);
             
             var startPos = FromNode.GetOutputPortCenter();
             var endPos = ToNode.GetInputCenter();
             
-            float yDistance = Mathf.Abs(endPos.y - startPos.y);
-            float controlOffset = Mathf.Min(yDistance * 0.5f, 50f);
+            var (cp1, cp2) = BezierUtils.GetVerticalControlPoints(startPos, endPos);
             
-            var cp1 = new Vector2(startPos.x, startPos.y + controlOffset);
-            var cp2 = new Vector2(endPos.x, endPos.y - controlOffset);
-            
-            // Check distance to bezier curve by sampling
-            const int samples = 10;
-            float minDistanceSq = float.MaxValue;
-            
-            Vector2 lastPoint = startPos;
-            for (int i = 1; i <= samples; i++)
-            {
-                float t = i / (float)samples;
-                Vector2 currentPoint = GetBezierPoint(startPos, cp1, cp2, endPos, t);
-                
-                float distSq = DistancePointToSegmentSq(worldPos, lastPoint, currentPoint);
-                if (distSq < minDistanceSq) minDistanceSq = distSq;
-                
-                lastPoint = currentPoint;
-            }
-            
-            return minDistanceSq < 400f; // 20 pixels radius
+            return BezierUtils.IsPointNearCurve(worldPos, startPos, cp1, cp2, endPos, 400f);
         }
 
-        private Vector2 GetBezierPoint(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
-        {
-            float u = 1 - t;
-            return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-        }
-
-        private float DistancePointToSegmentSq(Vector2 p, Vector2 a, Vector2 b)
-        {
-            float l2 = (a - b).sqrMagnitude;
-            if (l2 == 0) return (p - a).sqrMagnitude;
-            float t = Mathf.Clamp01(Vector2.Dot(p - a, b - a) / l2);
-            return (p - (a + t * (b - a))).sqrMagnitude;
-        }
+        // Bezier methods moved to BezierUtils
         
         private void OnGenerateVisualContent(MeshGenerationContext ctx)
         {
@@ -182,12 +145,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             painter.BeginPath();
             painter.MoveTo(startPos);
             
-            // Control points for bezier curve
-            float yDistance = Mathf.Abs(endPos.y - startPos.y);
-            float controlOffset = Mathf.Min(yDistance * 0.5f, 50f);
-            
-            var cp1 = new Vector2(startPos.x, startPos.y + controlOffset);
-            var cp2 = new Vector2(endPos.x, endPos.y - controlOffset);
+            var (cp1, cp2) = BezierUtils.GetVerticalControlPoints(startPos, endPos);
             
             painter.BezierCurveTo(cp1, cp2, endPos);
             painter.Stroke();

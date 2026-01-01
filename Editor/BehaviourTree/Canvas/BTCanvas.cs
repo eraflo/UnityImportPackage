@@ -43,6 +43,9 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         
         private BTMinimapElement _minimap;
         
+        // OPTIMIZATION: Node-to-Element cache for O(1) lookups
+        private Dictionary<Node, BTNodeElement> _nodeElementCache = new Dictionary<Node, BTNodeElement>();
+        
         // Clipboard
         private System.Type _clipboardType;
         private string _clipboardName;
@@ -231,18 +234,20 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         
         private void ClearAll()
         {
-            foreach (var node in _nodeElements)
+            // Use for loop to avoid enumerator allocation
+            for (int i = 0; i < _nodeElements.Count; i++)
             {
-                _nodeLayer.Remove(node);
+                _nodeLayer.Remove(_nodeElements[i]);
             }
             _nodeElements.Clear();
+            _nodeElementCache.Clear(); // OPTIMIZATION: Clear cache
             
-            foreach (var edge in _edgeElements)
+            for (int i = 0; i < _edgeElements.Count; i++)
             {
-                edge.ClearCallbacks();
+                _edgeElements[i].ClearCallbacks();
             }
             _edgeElements.Clear();
-            _edgeLayer.Clear(); // Clears both execution edges and data edges
+            _edgeLayer.Clear();
             
             _selectedNodes.Clear();
             _selectedEdges.Clear();
@@ -258,6 +263,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             element.OnPositionChanged += OnNodePositionChanged;
             
             _nodeElements.Add(element);
+            _nodeElementCache[node] = element; // OPTIMIZATION: Cache lookup
             _nodeLayer.Add(element);
             
             return element;
@@ -352,33 +358,45 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
         {
             if (parent?.Node is CompositeNode composite)
             {
-                // Find all edges from this parent
-                var outgoingEdges = _edgeElements.Where(e => e.FromNode == parent).ToList();
-                
-                // Set index based on the sorted Children list in the data
+                // OPTIMIZATION: Avoid LINQ Where().ToList(), use for loop
                 for (int i = 0; i < composite.Children.Count; i++)
                 {
                     var child = composite.Children[i];
                     if (child == null) continue;
-
-                    var edge = outgoingEdges.FirstOrDefault(e => e.ToNode != null && e.ToNode.Node == child);
-                    if (edge != null)
+                    
+                    // Find matching edge
+                    for (int j = 0; j < _edgeElements.Count; j++)
                     {
-                        edge.SetIndex(i);
+                        var edge = _edgeElements[j];
+                        if (edge.FromNode == parent && edge.ToNode != null && edge.ToNode.Node == child)
+                        {
+                            edge.SetIndex(i);
+                            break;
+                        }
                     }
                 }
             }
             else
             {
-                // Non-composite parents have only one child or none, no index needed
-                var outgoingEdges = _edgeElements.Where(e => e.FromNode == parent).ToList();
-                foreach (var edge in outgoingEdges) edge.SetIndex(-1);
+                // Non-composite parents: clear index on all outgoing edges
+                for (int i = 0; i < _edgeElements.Count; i++)
+                {
+                    var edge = _edgeElements[i];
+                    if (edge.FromNode == parent)
+                    {
+                        edge.SetIndex(-1);
+                    }
+                }
             }
         }
         
+        /// <summary>
+        /// Finds the visual element for a node. OPTIMIZED: Uses dictionary cache for O(1) lookup.
+        /// </summary>
         private BTNodeElement FindNodeElement(Node node)
         {
-            return _nodeElements.FirstOrDefault(n => n.Node == node);
+            if (node == null) return null;
+            return _nodeElementCache.TryGetValue(node, out var element) ? element : null;
         }
         
         private void OnNodeElementSelected(BTNodeElement element)
@@ -389,16 +407,21 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 
         public void ClearSelection()
         {
-            foreach (var node in _selectedNodes) node.SetSelected(false);
+            // OPTIMIZATION: Use for loops to avoid enumerator allocations
+            for (int i = 0; i < _selectedNodes.Count; i++)
+                _selectedNodes[i].SetSelected(false);
             _selectedNodes.Clear();
             
-            foreach (var edge in _selectedEdges) edge.SetSelected(false);
+            for (int i = 0; i < _selectedEdges.Count; i++)
+                _selectedEdges[i].SetSelected(false);
             _selectedEdges.Clear();
             
-            foreach (var edge in _selectedDataEdges) edge.SetSelected(false);
+            for (int i = 0; i < _selectedDataEdges.Count; i++)
+                _selectedDataEdges[i].SetSelected(false);
             _selectedDataEdges.Clear();
             
-            foreach (var note in _selectedStickyNotes) note.SetSelected(false);
+            for (int i = 0; i < _selectedStickyNotes.Count; i++)
+                _selectedStickyNotes[i].SetSelected(false);
             _selectedStickyNotes.Clear();
             
             OnSelectionCleared?.Invoke();
@@ -421,8 +444,10 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
 
         public void UpdateDebugStates()
         {
-            foreach (var node in _nodeElements)
+            // OPTIMIZATION: Use for loops to avoid enumerator allocations
+            for (int i = 0; i < _nodeElements.Count; i++)
             {
+                var node = _nodeElements[i];
                 if (!Application.isPlaying && node.Node != null)
                 {
                     node.Node.ResetRuntimeStates();
@@ -430,9 +455,9 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
                 node.UpdateDebugState();
             }
 
-            foreach (var edge in _edgeElements)
+            for (int i = 0; i < _edgeElements.Count; i++)
             {
-                edge.UpdateDebugState();
+                _edgeElements[i].UpdateDebugState();
             }
         }
 
@@ -456,9 +481,10 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             
             Rect bounds = new Rect(_nodeElements[0].Node.Position, Vector2.zero);
             
-            foreach (var nodeEl in _nodeElements)
+            // OPTIMIZATION: Use for loop
+            for (int i = 0; i < _nodeElements.Count; i++)
             {
-                var pos = nodeEl.Node.Position;
+                var pos = _nodeElements[i].Node.Position;
                 bounds.xMin = Mathf.Min(bounds.xMin, pos.x);
                 bounds.yMin = Mathf.Min(bounds.yMin, pos.y);
                 bounds.xMax = Mathf.Max(bounds.xMax, pos.x + 150);
@@ -984,10 +1010,18 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             return false;
         }
 
+        /// <summary>
+        /// Gets the node at a screen position. OPTIMIZED: Uses for loop.
+        /// </summary>
         private BTNodeElement GetNodeAtPosition(Vector2 localMousePos)
         {
             Vector2 worldPos = this.LocalToWorld(localMousePos);
-            return _nodeElements.FirstOrDefault(n => n.worldBound.Contains(worldPos));
+            for (int i = 0; i < _nodeElements.Count; i++)
+            {
+                if (_nodeElements[i].worldBound.Contains(worldPos))
+                    return _nodeElements[i];
+            }
+            return null;
         }
 
         private void OnMouseUp(MouseUpEvent evt)
@@ -1253,21 +1287,29 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Canvas
             _selectedDataEdges.Clear();
 
             // Delete nodes
-            foreach (var nodeElement in _selectedNodes.ToList())
+            var nodesToDelete = new List<BTNodeElement>(_selectedNodes);
+            for (int n = 0; n < nodesToDelete.Count; n++)
             {
+                var nodeElement = nodesToDelete[n];
                 var node = nodeElement.Node;
-                if (node != null) _tree.DeleteNode(node);
+                if (node != null)
+                {
+                    _tree.DeleteNode(node);
+                    _nodeElementCache.Remove(node);
+                }
                 
                 _nodeLayer.Remove(nodeElement);
                 _nodeElements.Remove(nodeElement);
                 
                 // Remove edges connected to this node
-                var connectedEdges = _edgeElements.Where(e => 
-                    e.FromNode == nodeElement || e.ToNode == nodeElement).ToList();
-                foreach (var edge in connectedEdges)
+                for (int i = _edgeElements.Count - 1; i >= 0; i--)
                 {
-                    _edgeLayer.Remove(edge);
-                    _edgeElements.Remove(edge);
+                    var edge = _edgeElements[i];
+                    if (edge.FromNode == nodeElement || edge.ToNode == nodeElement)
+                    {
+                        _edgeLayer.Remove(edge);
+                        _edgeElements.RemoveAt(i);
+                    }
                 }
                 
                 // Remove DATA edges connected to this node

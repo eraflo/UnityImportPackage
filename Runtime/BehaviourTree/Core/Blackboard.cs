@@ -40,6 +40,9 @@ namespace Eraflo.Catalyst.BehaviourTree
         private static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
 
         private bool _initialized = false;
+        
+        // OPTIMIZATION: Reusable buffer for GetAllKeys to reduce allocations
+        [NonSerialized] private List<string> _keysBuffer;
 
         public void OnBeforeSerialize() { }
         public void OnAfterDeserialize() => _initialized = false;
@@ -315,21 +318,32 @@ namespace Eraflo.Catalyst.BehaviourTree
         public string[] GetAllKeys()
         {
             EnsureInitialized();
+            
             if (IsThreadSafe)
             {
                 lock (_lock)
                 {
-                    var keys = new string[_runtimeData.Count];
-                    _runtimeData.Keys.CopyTo(keys, 0);
-                    return keys;
+                    return GetAllKeysInternal();
                 }
             }
-            else
-            {
-                var keys = new string[_runtimeData.Count];
-                _runtimeData.Keys.CopyTo(keys, 0);
-                return keys;
-            }
+            return GetAllKeysInternal();
+        }
+        
+        private string[] GetAllKeysInternal()
+        {
+            var keys = new string[_runtimeData.Count];
+            _runtimeData.Keys.CopyTo(keys, 0);
+            return keys;
+        }
+        
+        /// <summary>
+        /// Gets the keys collection directly for iteration without allocation.
+        /// WARNING: Not thread-safe, use only when IsThreadSafe is false.
+        /// </summary>
+        public IReadOnlyCollection<string> GetKeysNoAlloc()
+        {
+            EnsureInitialized();
+            return _runtimeData.Keys;
         }
 
         /// <summary>

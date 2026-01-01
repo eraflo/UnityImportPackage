@@ -2,7 +2,7 @@
     "name": "Eraflo.Catalyst.Samples.BehaviourTree",
     "rootNamespace": "Eraflo.Catalyst.Samples.BehaviourTree",
     "references": [
-        "GUID:0a0b8ab39a8e46b4596ce092c10a1fea"
+        "GUID:d61aa954a7e869d44a2105937c4e280d"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
