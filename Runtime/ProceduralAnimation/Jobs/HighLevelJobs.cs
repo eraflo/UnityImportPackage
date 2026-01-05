@@ -4,12 +4,104 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
+using Unity.Collections.LowLevel.Unsafe;
 using Eraflo.Catalyst.Noise;
 
 namespace Eraflo.Catalyst.ProceduralAnimation.Jobs
 {
     /// <summary>
-    /// Burst-compiled FABRIK IK solver job.
+    /// Two-Bone IK solver job - specifically designed for legs and arms.
+    /// Uses analytic solution with pole target for proper knee/elbow direction.
+    /// </summary>
+    [BurstCompile]
+    public struct TwoBoneIKJob : IJobFor
+    {
+        // Per-chain data
+        [ReadOnly] public NativeArray<int2> ChainRanges;        // start index, length (should be 3 for two-bone)
+        [ReadOnly] public NativeArray<float3> RootPositions;    // hip/shoulder position per chain
+        [ReadOnly] public NativeArray<float3> TargetPositions;  // foot/hand target per chain
+        [ReadOnly] public NativeArray<float3> PoleTargets;      // knee/elbow hint direction per chain
+        [ReadOnly] public NativeArray<float> BoneLengths;       // upper leg, lower leg lengths
+        
+        // Joint data (flattened: hip, knee, ankle for each leg)
+        [NativeDisableParallelForRestriction]
+        public NativeArray<float3> JointPositions;
+        
+        public void Execute(int chainIndex)
+        {
+            int2 range = ChainRanges[chainIndex];
+            int start = range.x;
+            int count = range.y;
+            
+            // Two-bone IK requires exactly 3 joints (root, mid, end)
+            if (count != 3) return;
+            
+            float3 root = RootPositions[chainIndex];
+            float3 target = TargetPositions[chainIndex];
+            float3 poleTarget = PoleTargets[chainIndex];
+            
+            float upperLen = BoneLengths[start];
+            float lowerLen = BoneLengths[start + 1];
+            float totalLen = upperLen + lowerLen;
+            
+            // Clamp target to reachable distance
+            float3 toTarget = target - root;
+            float targetDist = math.length(toTarget);
+            
+            // Minimum distance to prevent fully collapsed chain
+            float minDist = math.abs(upperLen - lowerLen) + 0.01f;
+            targetDist = math.clamp(targetDist, minDist, totalLen - 0.01f);
+            
+            float3 targetDir = math.normalizesafe(toTarget);
+            target = root + targetDir * targetDist;
+            
+            // Calculate knee position using law of cosines
+            // cos(angle at root) = (a² + c² - b²) / (2ac)
+            // where a = upperLen, b = lowerLen, c = targetDist
+            float cosAngle = (upperLen * upperLen + targetDist * targetDist - lowerLen * lowerLen) 
+                           / (2f * upperLen * targetDist);
+            cosAngle = math.clamp(cosAngle, -1f, 1f);
+            float angle = math.acos(cosAngle);
+            
+            // Project pole target onto the plane perpendicular to the hip-ankle line
+            // This gives us the direction the knee should bend
+            float3 poleDir = poleTarget - root;
+            float3 poleProjOnTarget = targetDir * math.dot(poleDir, targetDir);
+            float3 polePerp = math.normalizesafe(poleDir - poleProjOnTarget);
+            
+            // If pole is collinear with target direction, use a default perpendicular
+            if (math.lengthsq(polePerp) < 0.001f)
+            {
+                // Default: bend forward (use world forward projected)
+                float3 worldForward = new float3(0, 0, 1);
+                float3 forwardProj = worldForward - targetDir * math.dot(worldForward, targetDir);
+                polePerp = math.normalizesafe(forwardProj);
+                
+                if (math.lengthsq(polePerp) < 0.001f)
+                {
+                    polePerp = new float3(1, 0, 0);
+                }
+            }
+            
+            // The knee position is found by moving from hip along a direction that is
+            // rotated from the target direction toward the pole perpendicular
+            float3 planeNormal = math.normalizesafe(math.cross(targetDir, polePerp));
+            quaternion rotToKnee = quaternion.AxisAngle(planeNormal, angle);
+            float3 kneeDir = math.mul(rotToKnee, targetDir);
+            
+            // Position the joints
+            float3 hipPos = root;
+            float3 kneePos = hipPos + kneeDir * upperLen;
+            float3 anklePos = target;
+            
+            JointPositions[start] = hipPos;
+            JointPositions[start + 1] = kneePos;
+            JointPositions[start + 2] = anklePos;
+        }
+    }
+    
+    /// <summary>
+    /// Burst-compiled FABRIK IK solver job (for chains with more than 3 joints).
     /// Solves multiple IK chains in parallel.
     /// </summary>
     [BurstCompile]
@@ -22,6 +114,7 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Jobs
         [ReadOnly] public NativeArray<float> BoneLengths;       // all bone lengths flattened
         
         // Joint data (flattened for all chains)
+        [NativeDisableParallelForRestriction]
         public NativeArray<float3> JointPositions;
         
         // Solver config
@@ -90,21 +183,23 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Jobs
     
     /// <summary>
     /// Converts joint positions to rotations.
+    /// Uses delta rotation to preserve original bone orientation.
     /// </summary>
     [BurstCompile]
     public struct PositionToRotationJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int2> ChainRanges;
         [ReadOnly] public NativeArray<float3> JointPositions;
-        [ReadOnly] public NativeArray<float3> UpVectors;
+        [ReadOnly] public NativeArray<float3> OriginalPositions;  // Original positions before IK
+        [ReadOnly] public NativeArray<quaternion> OriginalRotations;  // Original rotations
         
+        [NativeDisableParallelForRestriction]
         public NativeArray<quaternion> Rotations;
         
         public void Execute(int jointIndex)
         {
             // Find which chain this joint belongs to
             int chainIndex = 0;
-            int offsetInChain = jointIndex;
             
             for (int c = 0; c < ChainRanges.Length; c++)
             {
@@ -112,7 +207,6 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Jobs
                 if (jointIndex >= range.x && jointIndex < range.x + range.y)
                 {
                     chainIndex = c;
-                    offsetInChain = jointIndex - range.x;
                     break;
                 }
             }
@@ -120,28 +214,62 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Jobs
             int2 myRange = ChainRanges[chainIndex];
             int lastInChain = myRange.x + myRange.y - 1;
             
-            // Calculate rotation to look at next joint
-            float3 pos = JointPositions[jointIndex];
-            float3 up = UpVectors[chainIndex];
+            // Get original rotation
+            quaternion originalRot = OriginalRotations[jointIndex];
             
             if (jointIndex < lastInChain)
             {
-                float3 nextPos = JointPositions[jointIndex + 1];
-                float3 forward = math.normalizesafe(nextPos - pos);
+                // Calculate original direction to next joint
+                float3 originalDir = math.normalizesafe(OriginalPositions[jointIndex + 1] - OriginalPositions[jointIndex]);
                 
-                if (math.lengthsq(forward) > 0.001f)
+                // Calculate new direction to next joint after IK
+                float3 newDir = math.normalizesafe(JointPositions[jointIndex + 1] - JointPositions[jointIndex]);
+                
+                // Calculate rotation delta from original direction to new direction
+                if (math.lengthsq(originalDir) > 0.001f && math.lengthsq(newDir) > 0.001f)
                 {
-                    Rotations[jointIndex] = quaternion.LookRotation(forward, up);
+                    quaternion deltaRot = RotationBetweenVectors(originalDir, newDir);
+                    Rotations[jointIndex] = math.mul(deltaRot, originalRot);
+                }
+                else
+                {
+                    Rotations[jointIndex] = originalRot;
                 }
             }
             else
             {
-                // Last joint uses previous joint's direction
-                if (jointIndex > myRange.x)
-                {
-                    Rotations[jointIndex] = Rotations[jointIndex - 1];
-                }
+                Rotations[jointIndex] = originalRot;
             }
+        }
+        
+        /// <summary>
+        /// Calculates the shortest rotation between two normalized vectors.
+        /// </summary>
+        private static quaternion RotationBetweenVectors(float3 from, float3 to)
+        {
+            float dot = math.dot(from, to);
+            
+            // Vectors are nearly parallel
+            if (dot > 0.99999f)
+            {
+                return quaternion.identity;
+            }
+            
+            // Vectors are nearly opposite
+            if (dot < -0.99999f)
+            {
+                // Find perpendicular axis
+                float3 axis = math.cross(new float3(1, 0, 0), from);
+                if (math.lengthsq(axis) < 0.001f)
+                    axis = math.cross(new float3(0, 1, 0), from);
+                axis = math.normalize(axis);
+                return quaternion.AxisAngle(axis, math.PI);
+            }
+            
+            float3 cross = math.cross(from, to);
+            float w = 1f + dot;
+            
+            return math.normalize(new quaternion(cross.x, cross.y, cross.z, w));
         }
     }
     

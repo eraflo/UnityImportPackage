@@ -450,12 +450,52 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Perception
             if (!string.IsNullOrEmpty(limbName))
                 generatedName = limbName;
             
+            // For legs, find the actual Foot bone (not toes) as the effector
+            // Look for bones with "foot" in the name, or use position-based heuristics
+            int effectorIndex = -1;  // Default: last bone
+            if (limbType == LimbType.Leg && transforms.Length >= 3)
+            {
+                // Search for the Foot bone by name
+                for (int i = transforms.Length - 1; i >= 0; i--)
+                {
+                    string boneName = transforms[i].name.ToLowerInvariant();
+                    // Stop at the first bone that contains "foot" but not "toe"
+                    if (boneName.Contains("foot") && !boneName.Contains("toe"))
+                    {
+                        effectorIndex = i;
+                        break;
+                    }
+                }
+                
+                // Fallback: if no "foot" bone found, look for the bone before any "toe" bone
+                if (effectorIndex == -1)
+                {
+                    for (int i = transforms.Length - 1; i >= 1; i--)
+                    {
+                        string boneName = transforms[i].name.ToLowerInvariant();
+                        if (boneName.Contains("toe") || boneName.Contains("ball"))
+                        {
+                            // The bone before this is likely the foot/ankle
+                            effectorIndex = i - 1;
+                            break;
+                        }
+                    }
+                }
+                
+                // Final fallback: use third bone for standard 3-bone legs (UpLeg, Leg, Foot)
+                if (effectorIndex == -1 && transforms.Length >= 3)
+                {
+                    effectorIndex = 2;  // Third bone (index 2) is typically the foot
+                }
+            }
+            
             var limb = new LimbChain
             {
                 Name = generatedName,
                 Bones = transforms,
                 Type = limbType,
-                Side = side
+                Side = side,
+                EffectorIndex = effectorIndex
             };
             
             limb.CalculateBoneLengths();

@@ -140,6 +140,20 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Solvers
         }
         
         /// <summary>
+        /// Gets the normalized stance progress (0-1) for a leg in stance phase.
+        /// Returns 0 if in swing.
+        /// </summary>
+        public float GetStanceProgress(float legPhaseOffset)
+        {
+            float legPhase = GetLegPhase(legPhaseOffset);
+            
+            if (legPhase >= _stanceDutyFactor)
+                return 1f;  // Stance is complete, in swing now
+            
+            return legPhase / _stanceDutyFactor;
+        }
+        
+        /// <summary>
         /// Gets the foot height for a leg based on its phase.
         /// Uses a smooth arc during swing.
         /// </summary>

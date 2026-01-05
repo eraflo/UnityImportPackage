@@ -34,8 +34,46 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         [Tooltip("Stance ratio (0-1).")]
         [SerializeField, Range(0.3f, 0.8f)] private float _stanceRatio = 0.6f;
         
-        [Tooltip("Step height.")]
+        [Tooltip("Step height for walking.")]
         [SerializeField] private float _stepHeight = 0.15f;
+        
+        [Tooltip("Step length for walking (how far ahead to step).")]
+        [SerializeField] private float _stepLength = 0.4f;
+        
+        [Tooltip("Auto-calculate step parameters based on leg length.")]
+        [SerializeField] private bool _autoCalculateStepParams = true;
+        
+        [Header("Speed Adaptation")]
+        [Tooltip("Speed threshold for sprinting (m/s).")]
+        [SerializeField] private float _sprintSpeed = 5f;
+        
+        [Tooltip("Step length multiplier when sprinting.")]
+        [SerializeField] private float _sprintStepMultiplier = 1.5f;
+        
+        [Tooltip("Step height multiplier when sprinting.")]
+        [SerializeField] private float _sprintHeightMultiplier = 1.3f;
+        
+        [Tooltip("Rest stance width multiplier (spread feet at rest).")]
+        [SerializeField] private float _restStanceWidth = 1.2f;
+        
+        [Header("Arm Swing")]
+        [Tooltip("Enable arm swing during walking.")]
+        [SerializeField] private bool _enableArmSwing = true;
+        
+        [Tooltip("Arm swing amplitude in degrees.")]
+        [SerializeField] private float _armSwingAmplitude = 30f;
+        
+        [Tooltip("Arm swing speed multiplier.")]
+        [SerializeField] private float _armSwingSpeed = 1f;
+        
+        [Tooltip("Arm rest rotation offset (X pitch, Y yaw, Z roll) to bring arms from T-pose to natural position.")]
+        [SerializeField] private Vector3 _armRestOffset = new Vector3(0, 0, -70f);  // Default: arms down by sides
+        
+        [Tooltip("Swing rotation axis: 0=X (pitch), 1=Y (yaw), 2=Z (roll).")]
+        [SerializeField, Range(0, 2)] private int _armSwingAxis = 0;
+        
+        [Tooltip("Additional outward swing angle to prevent clipping with the body.")]
+        [SerializeField] private float _armSwingOutward = 10f;
         
         [Header("Balance")]
         [Tooltip("Target height above ground.")]
@@ -54,6 +92,19 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         [Tooltip("Foot spring damping.")]
         [SerializeField] private float _footSpringDamping = 0.8f;
         
+        [Header("Ground Detection")]
+        [Tooltip("Layer mask for ground detection.")]
+        [SerializeField] private LayerMask _groundMask = ~0;  // Everything by default
+        
+        [Tooltip("Maximum raycast distance.")]
+        [SerializeField] private float _raycastDistance = 2f;
+        
+        [Tooltip("Offset from hip for raycast origin.")]
+        [SerializeField] private float _raycastHeightOffset = 0.5f;
+        
+        [Tooltip("Foot height offset (distance from ankle bone to sole of foot).")]
+        [SerializeField] private float _footHeightOffset = 0.08f;
+        
         // Native arrays
         private NativeArray<float3> _footTargets;
         private NativeArray<float3> _footPositions;
@@ -67,14 +118,16 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         private NativeArray<float3> _bodyPosition;
         private NativeArray<quaternion> _bodyRotation;
         
-        // FABRIK IK arrays for leg solving
-        private NativeArray<float3> _legJointPositions;  // All joints for all legs
+        // Two-Bone IK arrays for leg solving
+        private NativeArray<float3> _legJointPositions;  // All joints for all legs (hip, knee, ankle)
+        private NativeArray<float3> _legOriginalPositions;  // Original positions before IK
         private NativeArray<float> _legBoneLengths;
         private NativeArray<quaternion> _legRotations;
         private NativeArray<quaternion> _legOriginalRotations;
         private NativeArray<int2> _legChainRanges;       // Start index + length per leg
         private NativeArray<float3> _legRootPositions;
-        private NativeArray<float3> _legUpVectors;
+        private NativeArray<float3> _legPoleTargets;     // Knee direction hints
+        private NativeArray<quaternion> _footBindRotations;  // Original foot rotations to preserve
         private TransformAccessArray _legTransformAccess;
         private Transform[] _allLegBones;
         
@@ -88,11 +141,21 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         private bool _needsUpdate;
         private float _deltaTime;
         private bool[] _wasInStance;
+        private float3[] _localStepOffsets; // Rest position of feet relative to character
+        private bool _isMoving;  // Track if character is currently moving
+        
+        // Arm swing
+        private LimbChain[] _arms;
+        private quaternion[] _armBindRotations;  // Original arm rotations
         
         private SpringCoefficients _springConfig;
         private InertializationBlender _velocityInertializer;
         private float3 _smoothedVelocity;
         private int _totalLegBones;
+        private float _groundHeight;
+        private float _maxLegReach;  // Maximum distance the foot can reach from the hip
+        private NativeArray<float3> _legBindPositionsLocal;
+        private NativeArray<quaternion> _legBindRotationsLocal;
         
         [Header("IK")]
         [Tooltip("Enable FABRIK IK for leg bones.")]
@@ -149,56 +212,184 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
             float movementSpeed = math.length(_velocity);
             _gaitCycle.Update(deltaTime, movementSpeed);
             
-            // Calculate per-leg data
+            // Movement hysteresis and stabilization
+            float moveThreshold = _isMoving ? 0.05f : 0.15f; 
+            _isMoving = movementSpeed > moveThreshold;
+            
             for (int i = 0; i < _legs.Length; i++)
             {
-                float legPhaseOffset = _legPhases[i];
-                bool inStance = _gaitCycle.IsInStance(legPhaseOffset);
-                bool inSwing = _gaitCycle.IsInSwing(legPhaseOffset);
+                // The gait cycle methods already apply the global phase to the leg's offset
+                float legOffset = _legs[i].GaitPhase;
                 
-                // Detect phase transitions
-                if (inStance && !_wasInStance[i])
+                // Get gait cycle state
+                bool inStance = true;
+                bool inSwing = false;
+                float swingProgress = 0f;
+                
+                if (_isMoving)
                 {
-                    // Landing - set target to current position
-                    _footSwingStart[i] = _footPositions[i];
+                    inStance = _gaitCycle.IsInStance(legOffset);
+                    inSwing = _gaitCycle.IsInSwing(legOffset);
+                    swingProgress = _gaitCycle.GetSwingProgress(legOffset);
+                    _legPhases[i] = _gaitCycle.GetLegPhase(legOffset);
                 }
-                else if (inSwing && _wasInStance[i])
+                else
                 {
-                    // Lifting off - record start position
-                    _footSwingStart[i] = _footPositions[i];
+                    _legPhases[i] = 0f;
                 }
                 
-                _wasInStance[i] = inStance;
-                
-                // Calculate target position (raycast would go here, simplified for now)
+                // Calculate hip position
                 float3 hipPos = _legs[i].Root != null ? (float3)_legs[i].Root.position : (float3)transform.position;
-                float3 moveDir = math.length(_velocity) > 0.1f 
-                    ? math.normalizesafe(_velocity) 
-                    : new float3(0, 0, 0);
                 
-                _footTargets[i] = hipPos + moveDir * 0.3f;
-                _footTargets[i] = new float3(_footTargets[i].x, 0f, _footTargets[i].z); // Ground level
+                // ===== FOOT PLACEMENT =====
+                // Basic approach: feet follow a position relative to hips with offset based on movement
                 
+                // Calculate speed-adaptive step parameters
+                float currentSpeed = math.length(_velocity);
+                float speedRatio = math.saturate(currentSpeed / _sprintSpeed);  // 0 at walk, 1 at sprint
+                
+                // Interpolate step parameters based on speed
+                float adaptiveStepLength = math.lerp(_stepLength, _stepLength * _sprintStepMultiplier, speedRatio);
+                float adaptiveStepHeight = math.lerp(_stepHeight, _stepHeight * _sprintHeightMultiplier, speedRatio);
+                
+                // Base position: directly below hip with the leg's natural lateral offset
+                // Apply rest stance width multiplier when stationary
+                float3 localOffset = _localStepOffsets[i];
+                if (!_isMoving)
+                {
+                    localOffset.x *= _restStanceWidth;  // Spread feet wider at rest
+                }
+                float3 basePos = hipPos + (float3)transform.TransformDirection(localOffset);
+                basePos.y = _groundHeight + _footHeightOffset;
+                
+                float3 footTarget;
+                
+                if (_isMoving)
+                {
+                    // Movement direction
+                    float3 moveDir = math.normalizesafe(_velocity);
+                    
+                    if (inSwing)
+                    {
+                        // SWING: Foot moves forward with an arc
+                        // Start position: behind the hip
+                        // End position: ahead of the hip
+                        float3 backPos = basePos - moveDir * adaptiveStepLength * 0.5f;
+                        float3 frontPos = basePos + moveDir * adaptiveStepLength * 0.5f;
+                        
+                        // Interpolate from back to front
+                        footTarget = math.lerp(backPos, frontPos, swingProgress);
+                        
+                        // Add arc height
+                        float arcHeight = math.sin(swingProgress * math.PI) * adaptiveStepHeight;
+                        footTarget.y += arcHeight;
+                    }
+                    else
+                    {
+                        // STANCE: Foot stays behind the hip (simulating drag)
+                        // The foot gradually moves from front to back as the body passes over it
+                        float stanceProgress = _gaitCycle.GetStanceProgress(legOffset);
+                        float3 frontPos = basePos + moveDir * adaptiveStepLength * 0.3f;
+                        float3 backPos = basePos - moveDir * adaptiveStepLength * 0.3f;
+                        
+                        footTarget = math.lerp(frontPos, backPos, stanceProgress);
+                    }
+                }
+                else
+                {
+                    // Stationary: feet at rest position (already with wider stance)
+                    footTarget = basePos;
+                }
+                
+                // Raycast to find ground height
+                float groundY = _groundHeight;
+                Vector3 rayOrigin = new Vector3(footTarget.x, hipPos.y + _raycastHeightOffset, footTarget.z);
+                
+                if (UnityEngine.Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, _raycastDistance, _groundMask))
+                {
+                    groundY = hit.point.y;
+                }
+                
+                // Apply ground height (but preserve arc height during swing)
+                if (inSwing)
+                {
+                    float arcHeight = footTarget.y - (_groundHeight + _footHeightOffset);
+                    footTarget.y = groundY + _footHeightOffset + arcHeight;
+                }
+                else
+                {
+                    footTarget.y = groundY + _footHeightOffset;
+                }
+                
+                // Clamp to max leg reach
+                float3 hipToTarget = footTarget - hipPos;
+                float distToTarget = math.length(hipToTarget);
+                
+                if (distToTarget > _maxLegReach)
+                {
+                    footTarget = hipPos + math.normalizesafe(hipToTarget) * _maxLegReach;
+                }
+                
+                // Set the final target
+                _footTargets[i] = footTarget;
+                
+                // For the spring system, we'll bypass it and set position directly for now
+                _footPositions[i] = footTarget;
+                _footVelocities[i] = 0;
+                
+                // Store state
+                _wasInStance[i] = inStance;
                 _footInSwing[i] = inSwing;
                 _footGrounded[i] = inStance;
-                _footSwingProgress[i] = _gaitCycle.GetSwingProgress(legPhaseOffset);
-                _footStepHeights[i] = _gaitCycle.StepHeight;
+                _footSwingProgress[i] = swingProgress;
+                _footStepHeights[i] = _stepHeight;
                 
-                // Prepare FABRIK data
+                // Prepare Two-Bone IK data
                 if (_enableLegIK && _legRootPositions.IsCreated)
                 {
                     _legRootPositions[i] = hipPos;
                     
-                    // Copy current leg bone positions for FABRIK
+                    // Calculate pole target based on CURRENT knee position
+                    // This preserves the natural bending direction of the leg
+                    var leg = _legs[i];
+                    var ikBones = leg.GetIKBones();
+                    
+                    if (ikBones.Length >= 2)
+                    {
+                        // Get current knee position
+                        float3 kneePos = ikBones[1].position;
+                        float3 anklePos = leg.Effector != null ? (float3)leg.Effector.position : _footPositions[i];
+                        
+                        // Calculate the plane defined by hip-knee-ankle
+                        float3 hipToKnee = kneePos - hipPos;
+                        float3 hipToAnkle = anklePos - hipPos;
+                        
+                        // The pole target should be in the direction the knee is already pointing
+                        // Project knee position onto the plane perpendicular to hip-ankle line
+                        float3 hipAnkleDir = math.normalizesafe(hipToAnkle);
+                        float3 kneeProj = hipToKnee - hipAnkleDir * math.dot(hipToKnee, hipAnkleDir);
+                        
+                        // Pole target is the knee position extended further out
+                        float3 midpoint = (hipPos + anklePos) * 0.5f;
+                        _legPoleTargets[i] = midpoint + math.normalizesafe(kneeProj) * 0.5f;
+                    }
+                    else
+                    {
+                        // Fallback: use forward direction
+                        float3 anklePos = leg.Effector != null ? (float3)leg.Effector.position : _footPositions[i];
+                        float3 midpoint = (hipPos + anklePos) * 0.5f;
+                        _legPoleTargets[i] = midpoint + (float3)transform.forward * 0.5f;
+                    }
+                    
                     var range = _legChainRanges[i];
                     for (int j = 0; j < range.y; j++)
                     {
                         int idx = range.x + j;
-                        if (_allLegBones[idx] != null)
-                        {
-                            _legJointPositions[idx] = _allLegBones[idx].position;
-                            _legOriginalRotations[idx] = _allLegBones[idx].rotation;
-                        }
+                        _legJointPositions[idx] = _allLegBones[idx].position;
+                        
+                        // Use stable bind pose transformed to world space
+                        _legOriginalPositions[idx] = transform.TransformPoint(_legBindPositionsLocal[idx]);
+                        _legOriginalRotations[idx] = math.mul((quaternion)transform.rotation, _legBindRotationsLocal[idx]);
                     }
                 }
             }
@@ -222,35 +413,34 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
             
             var footHandle = footJob.Schedule(_legs.Length, 4, dependency);
             
-            // Schedule FABRIK IK for leg bones
+            // Schedule Two-Bone IK for leg bones
             JobHandle ikHandle = footHandle;
             if (_enableLegIK && _totalLegBones > 0)
             {
-                // Copy foot positions to FABRIK targets (in Prepare, we already set hip positions)
-                // FABRIK job solves each leg chain
-                var fabrikJob = new FABRIKJob
+                // Use TwoBoneIK for proper knee direction
+                var twoBoneJob = new TwoBoneIKJob
                 {
                     ChainRanges = _legChainRanges,
                     RootPositions = _legRootPositions,
                     TargetPositions = _footPositions,  // Foot positions are the targets
+                    PoleTargets = _legPoleTargets,      // Knee direction hints
                     BoneLengths = _legBoneLengths,
-                    JointPositions = _legJointPositions,
-                    MaxIterations = _ikIterations,
-                    Tolerance = 0.001f
+                    JointPositions = _legJointPositions
                 };
                 
-                var fabrikHandle = fabrikJob.Schedule(_legs.Length, dependency: footHandle);
+                var ikSolveHandle = twoBoneJob.Schedule(_legs.Length, dependency: footHandle);
                 
-                // Convert positions to rotations
+                // Convert positions to rotations using delta rotation
                 var rotationJob = new PositionToRotationJob
                 {
                     ChainRanges = _legChainRanges,
                     JointPositions = _legJointPositions,
-                    UpVectors = _legUpVectors,
+                    OriginalPositions = _legOriginalPositions,
+                    OriginalRotations = _legOriginalRotations,
                     Rotations = _legRotations
                 };
                 
-                ikHandle = rotationJob.Schedule(_totalLegBones, 4, fabrikHandle);
+                ikHandle = rotationJob.Schedule(_totalLegBones, 4, ikSolveHandle);
             }
             
             // Schedule body balance job
@@ -273,24 +463,95 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         
         public void Apply()
         {
-            // Apply foot positions to effectors
+            // Apply leg bone rotations from IK first (hip, knee only - not ankle)
+            if (_enableLegIK && _totalLegBones > 0)
+            {
+                for (int i = 0; i < _legs.Length; i++)
+                {
+                    var range = _legChainRanges[i];
+                    // Apply rotations to hip and knee only (first 2 bones)
+                    for (int j = 0; j < math.min(2, range.y); j++)
+                    {
+                        int idx = range.x + j;
+                        if (_allLegBones[idx] != null)
+                        {
+                            _allLegBones[idx].rotation = _legRotations[idx];
+                        }
+                    }
+                }
+            }
+            
+            // Apply foot positions and preserve original foot rotation
             for (int i = 0; i < _legs.Length; i++)
             {
                 if (_legs[i].Effector != null)
                 {
+                    // Position the foot at the spring target
                     _legs[i].Effector.position = _footPositions[i];
+                    
+                    // Preserve the original foot orientation relative to the character
+                    // This prevents the foot from rotating weirdly due to IK
+                    if (_footBindRotations.IsCreated)
+                    {
+                        quaternion worldFootRot = math.mul((quaternion)transform.rotation, _footBindRotations[i]);
+                        _legs[i].Effector.rotation = worldFootRot;
+                    }
                 }
             }
             
-            // Apply leg bone rotations from FABRIK
-            if (_enableLegIK && _totalLegBones > 0)
+            // Apply arm swing
+            if (_enableArmSwing && _arms != null && _arms.Length > 0 && _armBindRotations != null)
             {
-                for (int i = 0; i < _totalLegBones; i++)
+                float movementSpeed = math.length(_velocity);
+                float speedFactor = math.saturate(movementSpeed / (_sprintSpeed * 0.5f));  // Full swing at half sprint speed
+                
+                // Calculate swing angle based on gait cycle
+                float swingPhase = _gaitCycle.Phase * 2 * math.PI * _armSwingSpeed;
+                
+                // Pre-calculate the rest offset rotation (brings arms from T-pose to natural position)
+                quaternion restOffsetRot = quaternion.Euler(math.radians(_armRestOffset));
+                
+                for (int i = 0; i < _arms.Length; i++)
                 {
-                    if (_allLegBones[i] != null)
-                    {
-                        _allLegBones[i].rotation = _legRotations[i];
-                    }
+                    if (_arms[i].Root == null) continue;
+                    
+                    // Arms swing opposite to their corresponding leg
+                    // Left arm swings with right leg and vice versa
+                    bool isLeftArm = _arms[i].Side == BodySide.Left || _arms[i].Side == BodySide.BackLeft || _arms[i].Side == BodySide.FrontLeft;
+                    
+                    // Flip the rest offset for right arm (mirror X and Z)
+                    quaternion armRestOffset = isLeftArm ? restOffsetRot : 
+                        quaternion.Euler(math.radians(new float3(_armRestOffset.x, -_armRestOffset.y, -_armRestOffset.z)));
+                    
+                    // Phase offset: left arm should move with right leg (180° offset)
+                    float phaseOffset = isLeftArm ? 0f : math.PI;
+                    
+                    // Calculate swing angle
+                    float swingAngle = math.sin(swingPhase + phaseOffset) * _armSwingAmplitude * speedFactor;
+                    
+                    // Create swing rotation based on selected axis
+                    float3 swingEuler = float3.zero;
+                    swingEuler[_armSwingAxis] = math.radians(swingAngle);
+                    
+                    // Add outward swing (roll) to prevent clipping
+                    // We can use a small constant outward angle or scale it with movement
+                    float outwardAngle = _armSwingOutward * speedFactor;
+                    // For biped characters, outward is usually negative for left and positive for right (or vice versa depending on bone setup)
+                    // But our rest offset already handles the basic orientation.
+                    // Let's add a dynamic outward component that is strongest at the center of the swing
+                    float dynamicOutward = math.cos(swingPhase + phaseOffset) * (_armSwingOutward * 0.5f) * speedFactor;
+                    float totalOutward = math.radians(_armSwingOutward + dynamicOutward);
+                    
+                    // Z is usually the axis to move the arm away from the body in Mixamo/Unity standard
+                    swingEuler.z += isLeftArm ? -totalOutward : totalOutward;
+                    
+                    quaternion swingRot = quaternion.Euler(swingEuler);
+                    
+                    // Combine: bind rotation + rest offset + swing
+                    quaternion bindLocalRot = _armBindRotations[i];
+                    quaternion finalLocalRot = math.mul(math.mul(armRestOffset, swingRot), bindLocalRot);
+                    
+                    _arms[i].Root.localRotation = finalLocalRot;
                 }
             }
             
@@ -372,6 +633,7 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
             // Initialize with current positions
             _legPhases = new float[legCount];
             _wasInStance = new bool[legCount];
+            _localStepOffsets = new float3[legCount];
             
             for (int i = 0; i < legCount; i++)
             {
@@ -380,17 +642,55 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
                 
                 if (_legs[i].Effector != null)
                 {
-                    _footPositions[i] = _legs[i].Effector.position;
-                    _footSwingStart[i] = _footPositions[i];
+                    float3 worldFeet = (float3)_legs[i].Effector.position;
+                    _footPositions[i] = worldFeet;
+                    _footSwingStart[i] = worldFeet;
+                    
+                    // Capture local offset relative to character root
+                    float3 localPos = transform.InverseTransformPoint(worldFeet);
+                    _localStepOffsets[i] = new float3(localPos.x, 0, localPos.z);
+                    
+                    // Track ground height (use lowest foot Y)
+                    if (i == 0 || worldFeet.y < _groundHeight)
+                    {
+                        _groundHeight = worldFeet.y;
+                    }
                 }
             }
             
             _springConfig = SpringCoefficients.Create(_footSpringFrequency, _footSpringDamping, 0f);
             
-            // Initialize FABRIK IK arrays for leg solving
+            // Initialize Two-Bone IK arrays for leg solving
             if (_enableLegIK)
             {
                 InitializeLegIK(legCount);
+            }
+            
+            // Auto-calculate step parameters based on leg length
+            if (_autoCalculateStepParams && _legs.Length > 0)
+            {
+                float avgLegLength = 0f;
+                foreach (var leg in _legs)
+                {
+                    avgLegLength += leg.TotalLength;
+                }
+                avgLegLength /= _legs.Length;
+                
+                // Max leg reach: ~90% of total leg length to avoid full extension
+                _maxLegReach = avgLegLength * 0.9f;
+                
+                // Step length: ~25-35% of leg length for natural walking
+                _stepLength = avgLegLength * 0.3f;
+                
+                // Step height: ~8-12% of lower leg length
+                _stepHeight = avgLegLength * 0.1f;
+                
+                Debug.Log($"[ProceduralLocomotion] Auto-calculated: leg length={avgLegLength:F2}m, maxReach={_maxLegReach:F2}m, stepLength={_stepLength:F2}m, stepHeight={_stepHeight:F2}m");
+            }
+            else
+            {
+                // Default max reach if not auto-calculating
+                _maxLegReach = 1.0f;
             }
             
             // Initialize gait cycle
@@ -400,6 +700,25 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
                 StanceDutyFactor = _stanceRatio,
                 StepHeight = _stepHeight
             };
+            
+            // Initialize arm swing
+            if (_enableArmSwing)
+            {
+                _arms = topology.GetArms();
+                if (_arms != null && _arms.Length > 0)
+                {
+                    _armBindRotations = new quaternion[_arms.Length];
+                    for (int i = 0; i < _arms.Length; i++)
+                    {
+                        if (_arms[i].Root != null)
+                        {
+                            // Store LOCAL rotation relative to parent (shoulder)
+                            _armBindRotations[i] = _arms[i].Root.localRotation;
+                        }
+                    }
+                    Debug.Log($"[ProceduralLocomotion] Arm swing enabled with {_arms.Length} arms");
+                }
+            }
             
             // Initialize velocity inertialization
             _velocityInertializer = InertializationBlender.Create(0.1f);
@@ -414,59 +733,83 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
         
         private void InitializeLegIK(int legCount)
         {
-            // Count total bones across all legs
+            // Count total IK bones across all legs (excluding toes)
             _totalLegBones = 0;
             foreach (var leg in _legs)
             {
-                _totalLegBones += leg.Bones?.Length ?? 0;
+                _totalLegBones += leg.IKBoneCount;  // Use IKBoneCount instead of full Bones.Length
             }
             
             if (_totalLegBones == 0) return;
             
-            // Allocate arrays
             _legJointPositions = new NativeArray<float3>(_totalLegBones, Allocator.Persistent);
+            _legOriginalPositions = new NativeArray<float3>(_totalLegBones, Allocator.Persistent);
             _legBoneLengths = new NativeArray<float>(_totalLegBones, Allocator.Persistent);
             _legRotations = new NativeArray<quaternion>(_totalLegBones, Allocator.Persistent);
             _legOriginalRotations = new NativeArray<quaternion>(_totalLegBones, Allocator.Persistent);
+            _legBindPositionsLocal = new NativeArray<float3>(_totalLegBones, Allocator.Persistent);
+            _legBindRotationsLocal = new NativeArray<quaternion>(_totalLegBones, Allocator.Persistent);
             _legChainRanges = new NativeArray<int2>(legCount, Allocator.Persistent);
             _legRootPositions = new NativeArray<float3>(legCount, Allocator.Persistent);
-            _legUpVectors = new NativeArray<float3>(legCount, Allocator.Persistent);
+            _legPoleTargets = new NativeArray<float3>(legCount, Allocator.Persistent);
+            _footBindRotations = new NativeArray<quaternion>(legCount, Allocator.Persistent);
             
-            // Build bone list and chain ranges
+            // Build bone list and chain ranges (only IK bones, no toes)
             _allLegBones = new Transform[_totalLegBones];
             int boneIndex = 0;
             
             for (int i = 0; i < legCount; i++)
             {
                 var leg = _legs[i];
+                var ikBones = leg.GetIKBones();  // Get only Root → Effector bones
                 int chainStart = boneIndex;
-                int chainLength = leg.Bones?.Length ?? 0;
+                int chainLength = ikBones.Length;
                 
                 _legChainRanges[i] = new int2(chainStart, chainLength);
-                _legUpVectors[i] = new float3(0, 0, 1);  // Default forward for knee bend
                 
-                if (leg.Bones != null)
+                // Store original foot rotation (relative to character)
+                if (leg.Effector != null)
                 {
-                    for (int j = 0; j < leg.Bones.Length; j++)
+                    _footBindRotations[i] = math.mul(math.inverse((quaternion)transform.rotation), (quaternion)leg.Effector.rotation);
+                }
+                
+                // Calculate initial pole target (in front of the knee)
+                // The pole target should be in front of the leg to make the knee bend forward
+                if (ikBones.Length >= 2)
+                {
+                    float3 hipPos = ikBones[0].position;
+                    float3 anklePos = ikBones[ikBones.Length - 1].position;
+                    float3 midpoint = (hipPos + anklePos) * 0.5f;
+                    
+                    // Pole target is in front of the character, at the knee height
+                    float3 forward = transform.forward;
+                    _legPoleTargets[i] = midpoint + forward * 0.5f;
+                }
+                
+                for (int j = 0; j < ikBones.Length; j++)
+                {
+                    var bone = ikBones[j];
+                    _allLegBones[boneIndex] = bone;
+                    
+                    if (bone != null)
                     {
-                        var bone = leg.Bones[j];
-                        _allLegBones[boneIndex] = bone;
+                        // Store local bind pose relative to character root
+                        _legBindPositionsLocal[boneIndex] = transform.InverseTransformPoint(bone.position);
+                        _legBindRotationsLocal[boneIndex] = math.mul(math.inverse((quaternion)transform.rotation), (quaternion)bone.rotation);
                         
-                        if (bone != null)
+                        _legJointPositions[boneIndex] = bone.position;
+                        _legOriginalPositions[boneIndex] = bone.position;
+                        _legRotations[boneIndex] = bone.rotation;
+                        _legOriginalRotations[boneIndex] = bone.rotation;
+                        
+                        // Calculate bone length (to next bone)
+                        if (j < ikBones.Length - 1 && ikBones[j + 1] != null)
                         {
-                            _legJointPositions[boneIndex] = bone.position;
-                            _legRotations[boneIndex] = bone.rotation;
-                            _legOriginalRotations[boneIndex] = bone.rotation;
-                            
-                            // Calculate bone length (to next bone)
-                            if (j < leg.Bones.Length - 1 && leg.Bones[j + 1] != null)
-                            {
-                                _legBoneLengths[boneIndex] = Vector3.Distance(bone.position, leg.Bones[j + 1].position);
-                            }
+                            _legBoneLengths[boneIndex] = Vector3.Distance(bone.position, ikBones[j + 1].position);
                         }
-                        
-                        boneIndex++;
                     }
+                    
+                    boneIndex++;
                 }
             }
             
@@ -549,14 +892,18 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.Locomotion
             if (_bodyPosition.IsCreated) _bodyPosition.Dispose();
             if (_bodyRotation.IsCreated) _bodyRotation.Dispose();
             
-            // Dispose FABRIK IK arrays
+            // Dispose Two-Bone IK arrays
             if (_legJointPositions.IsCreated) _legJointPositions.Dispose();
+            if (_legOriginalPositions.IsCreated) _legOriginalPositions.Dispose();
             if (_legBoneLengths.IsCreated) _legBoneLengths.Dispose();
             if (_legRotations.IsCreated) _legRotations.Dispose();
             if (_legOriginalRotations.IsCreated) _legOriginalRotations.Dispose();
             if (_legChainRanges.IsCreated) _legChainRanges.Dispose();
             if (_legRootPositions.IsCreated) _legRootPositions.Dispose();
-            if (_legUpVectors.IsCreated) _legUpVectors.Dispose();
+            if (_legPoleTargets.IsCreated) _legPoleTargets.Dispose();
+            if (_footBindRotations.IsCreated) _footBindRotations.Dispose();
+            if (_legBindPositionsLocal.IsCreated) _legBindPositionsLocal.Dispose();
+            if (_legBindRotationsLocal.IsCreated) _legBindRotationsLocal.Dispose();
             if (_legTransformAccess.isCreated) _legTransformAccess.Dispose();
             
             _initialized = false;

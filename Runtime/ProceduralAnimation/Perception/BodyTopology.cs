@@ -218,7 +218,12 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Perception
         {
             for (int i = 0; i < legs.Length; i++)
             {
-                legs[i].GaitPhase = legs[i].Side == BodySide.Left ? 0f : 0.5f;
+                // Check if this is a left-side leg (Left, BackLeft, or FrontLeft)
+                bool isLeftSide = legs[i].Side == BodySide.Left || 
+                                  legs[i].Side == BodySide.BackLeft || 
+                                  legs[i].Side == BodySide.FrontLeft;
+                
+                legs[i].GaitPhase = isLeftSide ? 0f : 0.5f;
             }
         }
         

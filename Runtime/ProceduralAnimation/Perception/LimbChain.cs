@@ -23,9 +23,33 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Perception
         public Transform[] Bones;
         
         /// <summary>
-        /// The end effector (tip of the limb).
+        /// Optional override for the effector bone (e.g., use ankle instead of toe).
+        /// If null, uses the bone at EffectorIndex.
         /// </summary>
-        public Transform Effector => Bones != null && Bones.Length > 0 ? Bones[Bones.Length - 1] : null;
+        public Transform EffectorBone;
+        
+        /// <summary>
+        /// Index of the effector bone in the Bones array.
+        /// -1 means last bone, -2 means second-to-last, etc.
+        /// For legs, typically set to the index of the Foot bone (ankle).
+        /// </summary>
+        public int EffectorIndex = -1;
+        
+        /// <summary>
+        /// The end effector (IK target bone).
+        /// Uses EffectorBone if set, otherwise the bone at EffectorIndex.
+        /// </summary>
+        public Transform Effector
+        {
+            get
+            {
+                if (EffectorBone != null) return EffectorBone;
+                if (Bones == null || Bones.Length == 0) return null;
+                
+                int index = EffectorIndex < 0 ? Bones.Length + EffectorIndex : EffectorIndex;
+                return index >= 0 && index < Bones.Length ? Bones[index] : Bones[Bones.Length - 1];
+            }
+        }
         
         /// <summary>
         /// The root bone of this limb.
@@ -96,6 +120,34 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Perception
         /// Number of bones in this limb.
         /// </summary>
         public int BoneCount => Bones?.Length ?? 0;
+        
+        /// <summary>
+        /// Number of bones to use for IK (up to and including the effector).
+        /// Excludes bones after the effector (e.g., toes for legs).
+        /// </summary>
+        public int IKBoneCount
+        {
+            get
+            {
+                if (Bones == null || Bones.Length == 0) return 0;
+                int effectorIdx = EffectorIndex < 0 ? Bones.Length + EffectorIndex : EffectorIndex;
+                return Math.Min(effectorIdx + 1, Bones.Length);
+            }
+        }
+        
+        /// <summary>
+        /// Gets only the bones needed for IK solving (Root to Effector).
+        /// For legs, this excludes toe bones.
+        /// </summary>
+        public Transform[] GetIKBones()
+        {
+            if (Bones == null) return Array.Empty<Transform>();
+            
+            int count = IKBoneCount;
+            var ikBones = new Transform[count];
+            Array.Copy(Bones, ikBones, count);
+            return ikBones;
+        }
         
         /// <summary>
         /// Calculates the current world position of the effector.

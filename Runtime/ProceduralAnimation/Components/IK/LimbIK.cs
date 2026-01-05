@@ -55,13 +55,13 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
         
         // Native arrays for job data
         private NativeArray<float3> _jointPositions;
+        private NativeArray<float3> _originalPositions;  // Original positions before IK
         private NativeArray<float> _boneLengths;
         private NativeArray<quaternion> _rotations;
         private NativeArray<quaternion> _originalRotations;
         private NativeArray<int2> _chainRanges;
         private NativeArray<float3> _rootPositions;
         private NativeArray<float3> _targetPositions;
-        private NativeArray<float3> _upVectors;
         private TransformAccessArray _transformAccess;
         
         // Runtime data
@@ -108,10 +108,11 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
         {
             _deltaTime = deltaTime;
             
-            // Copy current joint positions
+            // Copy current joint positions and rotations (before IK)
             for (int i = 0; i < _boneCount; i++)
             {
                 _jointPositions[i] = _bones[i].position;
+                _originalPositions[i] = _bones[i].position;
                 _originalRotations[i] = _bones[i].rotation;
             }
             
@@ -123,9 +124,6 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
             // Set root and target
             _rootPositions[0] = _bones[0].position;
             _targetPositions[0] = _smoothedTargetPosition;
-            _upVectors[0] = _pole != null 
-                ? math.normalizesafe((float3)_pole.position - _jointPositions[1])
-                : new float3(0, 1, 0);
         }
         
         public JobHandle Schedule(JobHandle dependency)
@@ -144,12 +142,13 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
             
             var fabrikHandle = fabrikJob.Schedule(1, dependency);
             
-            // Convert positions to rotations
+            // Convert positions to rotations using delta rotation
             var rotationJob = new PositionToRotationJob
             {
                 ChainRanges = _chainRanges,
                 JointPositions = _jointPositions,
-                UpVectors = _upVectors,
+                OriginalPositions = _originalPositions,
+                OriginalRotations = _originalRotations,
                 Rotations = _rotations
             };
             
@@ -232,18 +231,27 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
             
             // Allocate native arrays
             _jointPositions = new NativeArray<float3>(_boneCount, Allocator.Persistent);
+            _originalPositions = new NativeArray<float3>(_boneCount, Allocator.Persistent);
             _boneLengths = new NativeArray<float>(_boneCount - 1, Allocator.Persistent);
             _rotations = new NativeArray<quaternion>(_boneCount, Allocator.Persistent);
             _originalRotations = new NativeArray<quaternion>(_boneCount, Allocator.Persistent);
             _chainRanges = new NativeArray<int2>(1, Allocator.Persistent);
             _rootPositions = new NativeArray<float3>(1, Allocator.Persistent);
             _targetPositions = new NativeArray<float3>(1, Allocator.Persistent);
-            _upVectors = new NativeArray<float3>(1, Allocator.Persistent);
             
-            // Calculate bone lengths
+            // Calculate bone lengths and initialize rotations
             for (int i = 0; i < _boneCount - 1; i++)
             {
                 _boneLengths[i] = Vector3.Distance(_bones[i].position, _bones[i + 1].position);
+            }
+            
+            // Initialize rotations and positions with current bone state
+            for (int i = 0; i < _boneCount; i++)
+            {
+                _rotations[i] = _bones[i].rotation;
+                _originalRotations[i] = _bones[i].rotation;
+                _jointPositions[i] = _bones[i].position;
+                _originalPositions[i] = _bones[i].position;
             }
             
             // Set chain range (single chain: starts at 0, length = boneCount)
@@ -301,13 +309,13 @@ namespace Eraflo.Catalyst.ProceduralAnimation.Components.IK
             AnimationJobManager.Instance?.Unregister(this);
             
             if (_jointPositions.IsCreated) _jointPositions.Dispose();
+            if (_originalPositions.IsCreated) _originalPositions.Dispose();
             if (_boneLengths.IsCreated) _boneLengths.Dispose();
             if (_rotations.IsCreated) _rotations.Dispose();
             if (_originalRotations.IsCreated) _originalRotations.Dispose();
             if (_chainRanges.IsCreated) _chainRanges.Dispose();
             if (_rootPositions.IsCreated) _rootPositions.Dispose();
             if (_targetPositions.IsCreated) _targetPositions.Dispose();
-            if (_upVectors.IsCreated) _upVectors.Dispose();
             if (_transformAccess.isCreated) _transformAccess.Dispose();
             
             _comfortOptimizer?.Dispose();

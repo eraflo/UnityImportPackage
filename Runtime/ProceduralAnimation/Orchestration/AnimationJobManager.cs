@@ -184,12 +184,15 @@ namespace Eraflo.Catalyst.ProceduralAnimation
         {
             lock (_lock)
             {
-                foreach (var job in _jobs)
+                // Copy to avoid collection modified exception during iteration
+                var jobsCopy = new List<IProceduralAnimationJob>(_jobs);
+                _jobs.Clear();
+                _jobsByType.Clear();
+                
+                foreach (var job in jobsCopy)
                 {
                     job.Dispose();
                 }
-                _jobs.Clear();
-                _jobsByType.Clear();
             }
         }
         
