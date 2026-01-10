@@ -11,17 +11,17 @@ namespace Eraflo.Catalyst.Tests
         [SetUp]
         public void SetUp()
         {
-            NetworkManager.Reset();
+            App.Get<NetworkManager>().Reset();
             var mock = new MockNetworkBackend(isServer: true, isClient: true, isConnected: true);
             mock.EnableLoopback = true;
-            NetworkManager.SetBackend(mock);
-            NetworkManager.Handlers.Register(new EventNetworkHandler());
+            App.Get<NetworkManager>().SetBackend(mock);
+            App.Get<NetworkManager>().Handlers.Register(new EventNetworkHandler());
         }
 
         [TearDown]
         public void TearDown()
         {
-            NetworkManager.Reset();
+            App.Get<NetworkManager>().Reset();
         }
 
         [Test]
@@ -59,7 +59,7 @@ namespace Eraflo.Catalyst.Tests
         public void NetworkEventChannel_FallsBackToLocal_WhenNoNetwork()
         {
             // Clear backend to simulate no network
-            NetworkManager.ClearBackend();
+            App.Get<NetworkManager>().SetBackend(null);
 
             var channel = ScriptableObject.CreateInstance<NetworkEventChannel>();
             channel.EnableNetwork = true;

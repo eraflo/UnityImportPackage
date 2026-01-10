@@ -13,21 +13,21 @@ namespace Eraflo.Catalyst.Tests
         [SetUp]
         public void SetUp()
         {
-            NetworkManager.Reset();
-            NetworkManager.Backends.Register(new MockBackendFactory());
+            App.Get<NetworkManager>().Reset();
+            App.Get<NetworkManager>().Backends.Register(new MockBackendFactory());
             
             _mockBackend = new MockNetworkBackend(isServer: true, isClient: true, isConnected: true);
-            NetworkManager.SetBackend(_mockBackend);
+            App.Get<NetworkManager>().SetBackend(_mockBackend);
             
             // Register test handlers
-            NetworkManager.Handlers.Register(new TimerNetworkHandler());
-            NetworkManager.Handlers.Register(new PoolNetworkHandler());
+            App.Get<NetworkManager>().Handlers.Register(new TimerNetworkHandler());
+            App.Get<NetworkManager>().Handlers.Register(new PoolNetworkHandler());
         }
 
         [TearDown]
         public void TearDown()
         {
-            NetworkManager.Reset();
+            App.Get<NetworkManager>().Reset();
         }
 
         #region State
@@ -35,20 +35,20 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void HasBackend_ReturnsTrue_WhenSet()
         {
-            Assert.IsTrue(NetworkManager.HasBackend);
+            Assert.IsTrue(App.Get<NetworkManager>().HasBackend);
         }
 
         [Test]
         public void HasBackend_ReturnsFalse_WhenCleared()
         {
-            NetworkManager.ClearBackend();
-            Assert.IsFalse(NetworkManager.HasBackend);
+            App.Get<NetworkManager>().SetBackend(null);
+            Assert.IsFalse(App.Get<NetworkManager>().HasBackend);
         }
 
         [Test]
         public void IsHost_True_WhenServerAndClient()
         {
-            Assert.IsTrue(NetworkManager.IsHost);
+            Assert.IsTrue(App.Get<NetworkManager>().IsHost);
         }
 
         #endregion
@@ -58,15 +58,15 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Backends_Register_AddsFactory()
         {
-            var factory = NetworkManager.Backends.Get("mock");
+            var factory = App.Get<NetworkManager>().Backends.Get("mock");
             Assert.IsNotNull(factory);
         }
 
         [Test]
         public void SetBackendById_UsesRegistry()
         {
-            NetworkManager.ClearBackend();
-            Assert.IsTrue(NetworkManager.SetBackendById("mock"));
+            App.Get<NetworkManager>().SetBackend(null);
+            Assert.IsTrue(App.Get<NetworkManager>().SetBackendById("mock"));
         }
 
         #endregion
@@ -76,15 +76,15 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Handlers_Get_ReturnsRegisteredHandler()
         {
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            var handler = App.Get<NetworkManager>().Handlers.Get<TimerNetworkHandler>();
             Assert.IsNotNull(handler);
         }
 
         [Test]
         public void Handlers_Get_ReturnsNull_WhenNotRegistered()
         {
-            NetworkManager.Reset();
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            App.Get<NetworkManager>().Reset();
+            var handler = App.Get<NetworkManager>().Handlers.Get<TimerNetworkHandler>();
             Assert.IsNull(handler);
         }
 
@@ -96,8 +96,8 @@ namespace Eraflo.Catalyst.Tests
         public void Send_InvokesHandler_WithLoopback()
         {
             bool received = false;
-            NetworkManager.On<TestMessage>(m => received = true);
-            NetworkManager.Send(new TestMessage { Value = 42 });
+            App.Get<NetworkManager>().On<TestMessage>(m => received = true);
+            App.Get<NetworkManager>().Send(new TestMessage { Value = 42 });
             Assert.IsTrue(received);
         }
 
@@ -107,10 +107,10 @@ namespace Eraflo.Catalyst.Tests
             int count = 0;
             void Handler(TestMessage m) => count++;
 
-            NetworkManager.On<TestMessage>(Handler);
-            NetworkManager.Send(new TestMessage());
-            NetworkManager.Off<TestMessage>(Handler);
-            NetworkManager.Send(new TestMessage());
+            App.Get<NetworkManager>().On<TestMessage>(Handler);
+            App.Get<NetworkManager>().Send(new TestMessage());
+            App.Get<NetworkManager>().Off<TestMessage>(Handler);
+            App.Get<NetworkManager>().Send(new TestMessage());
             
             Assert.AreEqual(1, count);
         }
@@ -122,7 +122,7 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Timer_MakeNetworked_UsesHandler()
         {
-            var handle = Timer.Create<CountdownTimer>(1f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(1f);
             var id = handle.MakeNetworked();
             Assert.Greater(id, 0u);
             handle.RemoveNetworking();
@@ -150,17 +150,17 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void LocalClientId_ReturnsBackendClientId()
         {
-            Assert.AreEqual(0ul, NetworkManager.LocalClientId);
+            Assert.AreEqual(0ul, App.Get<NetworkManager>().LocalClientId);
         }
 
         [Test]
         public void SendToClient_DeliveresToSpecificClient()
         {
             bool received = false;
-            NetworkManager.On<TestMessage>(m => received = true);
+            App.Get<NetworkManager>().On<TestMessage>(m => received = true);
             
             // Mock loopback simulates self-delivery
-            NetworkManager.SendToClient(new TestMessage { Value = 1 }, _mockBackend.LocalClientId);
+            App.Get<NetworkManager>().SendToClient(new TestMessage { Value = 1 }, _mockBackend.LocalClientId);
             
             Assert.IsTrue(received);
         }
@@ -169,10 +169,10 @@ namespace Eraflo.Catalyst.Tests
         public void SendToClients_DeliversToMultipleClients()
         {
             int count = 0;
-            NetworkManager.On<TestMessage>(m => count++);
+            App.Get<NetworkManager>().On<TestMessage>(m => count++);
             
             // Send to self twice (loopback hits each time targeting self)
-            NetworkManager.SendToClients(new TestMessage { Value = 1 }, 
+            App.Get<NetworkManager>().SendToClients(new TestMessage { Value = 1 }, 
                 _mockBackend.LocalClientId, _mockBackend.LocalClientId);
             
             Assert.AreEqual(2, count);
@@ -183,9 +183,9 @@ namespace Eraflo.Catalyst.Tests
         {
             _mockBackend.SetServerState(false);
             bool received = false;
-            NetworkManager.On<TestMessage>(m => received = true);
+            App.Get<NetworkManager>().On<TestMessage>(m => received = true);
             
-            NetworkManager.SendToClient(new TestMessage { Value = 1 }, 0);
+            App.Get<NetworkManager>().SendToClient(new TestMessage { Value = 1 }, 0);
             
             Assert.IsFalse(received);
         }

@@ -14,13 +14,13 @@ namespace Eraflo.Catalyst.Tests
         public void Setup()
         {
             _testChannel = ScriptableObject.CreateInstance<IntEventChannel>();
-            EventBus.Clear(_testChannel);
+            App.Get<EventBus>().Clear(_testChannel);
         }
 
         [TearDown]
         public void TearDown()
         {
-            EventBus.Clear(_testChannel);
+            App.Get<EventBus>().Clear(_testChannel);
             if (_testChannel != null)
             {
                 UnityEngine.Object.DestroyImmediate(_testChannel);
@@ -93,7 +93,7 @@ namespace Eraflo.Catalyst.Tests
             _testChannel.Subscribe((v) => callCount++);
             _testChannel.Subscribe((v) => callCount++);
 
-            EventBus.Clear(_testChannel);
+            App.Get<EventBus>().Clear(_testChannel);
             _testChannel.Raise(1);
 
             Assert.AreEqual(0, callCount);

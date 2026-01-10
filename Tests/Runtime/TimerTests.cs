@@ -13,13 +13,13 @@ namespace Eraflo.Catalyst.Tests
         [SetUp]
         public void SetUp()
         {
-            Timer.Clear();
+            App.Get<Timer>().Clear();
         }
 
         [TearDown]
         public void TearDown()
         {
-            Timer.Clear();
+            App.Get<Timer>().Clear();
         }
 
         #region Timer Creation Tests
@@ -27,49 +27,49 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Create_CountdownTimer_ReturnsValidHandle()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.AreEqual(1, Timer.Count);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
         }
 
         [Test]
         public void Create_StopwatchTimer_ReturnsValidHandle()
         {
-            var handle = Timer.Create<StopwatchTimer>(0f);
+            var handle = App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.AreEqual(1, Timer.Count);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
         }
 
         [Test]
         public void Create_MultipleTimers_IncreasesCount()
         {
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Create<StopwatchTimer>(0f);
-            Timer.Create<DelayTimer>(3f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
+            App.Get<Timer>().CreateTimer<DelayTimer>(3f);
             
-            Assert.AreEqual(3, Timer.Count);
+            Assert.AreEqual(3, App.Get<Timer>().Count);
         }
 
         [Test]
         public void Create_WithConfig_AppliesSettings()
         {
             var config = TimerConfig.Create(10f, timeScale: 2f, useUnscaledTime: true);
-            var handle = Timer.Create<CountdownTimer>(config);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(config);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.AreEqual(10f, Timer.GetCurrentTime(handle), 0.01f);
+            Assert.AreEqual(10f, App.Get<Timer>().GetCurrentTime(handle), 0.01f);
         }
 
         [Test]
         public void Delay_CreatesTimerWithCallback()
         {
             bool called = false;
-            var handle = Timer.Delay(1f, () => called = true);
+            var handle = App.Get<Timer>().CreateDelay(1f, () => called = true);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.AreEqual(1, Timer.Count);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
         }
 
         #endregion
@@ -79,33 +79,33 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Timer_IsRunning_TrueAfterCreation()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void Timer_IsFinished_FalseAfterCreation()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Assert.IsFalse(Timer.IsFinished(handle));
+            Assert.IsFalse(App.Get<Timer>().IsFinished(handle));
         }
 
         [Test]
         public void Timer_GetProgress_ReturnsOneAtStart()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Assert.AreEqual(1f, Timer.GetProgress(handle), 0.01f);
+            Assert.AreEqual(1f, App.Get<Timer>().GetProgress(handle), 0.01f);
         }
 
         [Test]
         public void Timer_GetCurrentTime_ReturnsInitialDuration()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Assert.AreEqual(5f, Timer.GetCurrentTime(handle), 0.01f);
+            Assert.AreEqual(5f, App.Get<Timer>().GetCurrentTime(handle), 0.01f);
         }
 
         #endregion
@@ -115,69 +115,69 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Pause_StopsTimer()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Timer.Pause(handle);
+            App.Get<Timer>().Pause(handle);
             
-            Assert.IsFalse(Timer.IsRunning(handle));
+            Assert.IsFalse(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void Resume_StartsTimerAfterPause()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Timer.Pause(handle);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().Pause(handle);
             
-            Timer.Resume(handle);
+            App.Get<Timer>().Resume(handle);
             
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void Cancel_RemovesTimer()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Assert.AreEqual(1, Timer.Count);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
             
-            Timer.Cancel(handle);
+            App.Get<Timer>().CancelTimer(handle);
             
-            Assert.AreEqual(0, Timer.Count);
+            Assert.AreEqual(0, App.Get<Timer>().Count);
         }
 
         [Test]
         public void Reset_RestoresInitialTime()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             // Simulate some time passing (manually set for test)
             
-            Timer.Reset(handle);
+            App.Get<Timer>().ResetTimer(handle);
             
-            Assert.AreEqual(5f, Timer.GetCurrentTime(handle), 0.01f);
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.AreEqual(5f, App.Get<Timer>().GetCurrentTime(handle), 0.01f);
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void SetTimeScale_ChangesTimerSpeed()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            Timer.SetTimeScale(handle, 2f);
+            App.Get<Timer>().SetTimeScale(handle, 2f);
             
             // Timer should still be valid after setting time scale
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void Clear_RemovesAllTimers()
         {
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Create<StopwatchTimer>(0f);
-            Timer.Create<DelayTimer>(3f);
-            Assert.AreEqual(3, Timer.Count);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
+            App.Get<Timer>().CreateTimer<DelayTimer>(3f);
+            Assert.AreEqual(3, App.Get<Timer>().Count);
             
-            Timer.Clear();
+            App.Get<Timer>().Clear();
             
-            Assert.AreEqual(0, Timer.Count);
+            Assert.AreEqual(0, App.Get<Timer>().Count);
         }
 
         #endregion
@@ -187,81 +187,81 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void OnComplete_CallbackRegistered_DoesNotThrow()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnComplete>(handle, () => { });
+                App.Get<Timer>().On<OnComplete>(handle, () => { });
             });
         }
 
         [Test]
         public void OnTick_WithParameter_CallbackRegistered()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnTick, float>(handle, (dt) => { });
+                App.Get<Timer>().On<OnTick, float>(handle, (dt) => { });
             });
         }
 
         [Test]
         public void OnRepeat_WithIntParameter_CallbackRegistered()
         {
-            var handle = Timer.Create<RepeatingTimer>(1f);
+            var handle = App.Get<Timer>().CreateTimer<RepeatingTimer>(1f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnRepeat, int>(handle, (count) => { });
+                App.Get<Timer>().On<OnRepeat, int>(handle, (count) => { });
             });
         }
 
         [Test]
         public void OnPause_CallbackRegistered()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnPause>(handle, () => { });
+                App.Get<Timer>().On<OnPause>(handle, () => { });
             });
         }
 
         [Test]
         public void OnResume_CallbackRegistered()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnResume>(handle, () => { });
+                App.Get<Timer>().On<OnResume>(handle, () => { });
             });
         }
 
         [Test]
         public void OnReset_CallbackRegistered()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnReset>(handle, () => { });
+                App.Get<Timer>().On<OnReset>(handle, () => { });
             });
         }
 
         [Test]
         public void OnCancel_CallbackRegistered()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             Assert.DoesNotThrow(() => {
-                Timer.On<OnCancel>(handle, () => { });
+                App.Get<Timer>().On<OnCancel>(handle, () => { });
             });
         }
 
         [Test]
         public void Off_UnregistersCallback()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Timer.On<OnComplete>(handle, () => { });
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().On<OnComplete>(handle, () => { });
             
             Assert.DoesNotThrow(() => {
-                Timer.Off<OnComplete>(handle);
+                App.Get<Timer>().Off<OnComplete>(handle);
             });
         }
 
@@ -272,10 +272,10 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void GetEasedProgress_Linear_ReturnsSameAsProgress()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            float progress = Timer.GetProgress(handle);
-            float eased = Timer.GetEasedProgress(handle, EasingType.Linear);
+            float progress = App.Get<Timer>().GetProgress(handle);
+            float eased = App.Get<Timer>().GetEasedProgress(handle, EasingType.Linear);
             
             Assert.AreEqual(progress, eased, 0.001f);
         }
@@ -283,10 +283,10 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void GetEasedProgress_QuadIn_ReturnsDifferentValue()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             // QuadIn at t=1 should still be 1, but at t=0.5 it's 0.25
-            float eased = Timer.GetEasedProgress(handle, EasingType.QuadIn);
+            float eased = App.Get<Timer>().GetEasedProgress(handle, EasingType.QuadIn);
             
             // At start (progress = 1), QuadIn(1) = 1
             Assert.AreEqual(1f, eased, 0.001f);
@@ -295,9 +295,9 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Lerp_Float_InterpolatesCorrectly()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
-            float result = Timer.Lerp(handle, 0f, 100f, EasingType.Linear);
+            float result = App.Get<Timer>().Lerp(handle, 0f, 100f, EasingType.Linear);
             
             Assert.AreEqual(100f, result, 0.01f);
         }
@@ -305,11 +305,11 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Lerp_Vector2_InterpolatesCorrectly()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             Vector2 from = Vector2.zero;
             Vector2 to = Vector2.one * 10f;
             
-            Vector2 result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            Vector2 result = App.Get<Timer>().Lerp(handle, from, to, EasingType.Linear);
             
             Assert.AreEqual(to, result);
         }
@@ -317,11 +317,11 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Lerp_Vector3_InterpolatesCorrectly()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             Vector3 from = Vector3.zero;
             Vector3 to = Vector3.one * 10f;
             
-            Vector3 result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            Vector3 result = App.Get<Timer>().Lerp(handle, from, to, EasingType.Linear);
             
             Assert.AreEqual(to, result);
         }
@@ -329,11 +329,11 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Lerp_Quaternion_InterpolatesCorrectly()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             Quaternion from = Quaternion.identity;
             Quaternion to = Quaternion.Euler(0, 90, 0);
             
-            Quaternion result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            Quaternion result = App.Get<Timer>().Lerp(handle, from, to, EasingType.Linear);
             
             Assert.AreEqual(to.eulerAngles.y, result.eulerAngles.y, 0.01f);
         }
@@ -341,11 +341,11 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Lerp_Color_InterpolatesCorrectly()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             Color from = Color.black;
             Color to = Color.white;
             
-            Color result = Timer.Lerp(handle, from, to, EasingType.Linear);
+            Color result = App.Get<Timer>().Lerp(handle, from, to, EasingType.Linear);
             
             Assert.AreEqual(to, result);
         }
@@ -353,11 +353,11 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void LerpUnclamped_AllowsOvershoot()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             
             // LerpUnclamped should work without throwing
             Assert.DoesNotThrow(() => {
-                Timer.LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
+                App.Get<Timer>().LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
             });
         }
 
@@ -368,28 +368,28 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void DelayTimer_CreatesValidHandle()
         {
-            var handle = Timer.Create<DelayTimer>(2f);
+            var handle = App.Get<Timer>().CreateTimer<DelayTimer>(2f);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void RepeatingTimer_CreatesValidHandle()
         {
-            var handle = Timer.Create<RepeatingTimer>(1f);
+            var handle = App.Get<Timer>().CreateTimer<RepeatingTimer>(1f);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         [Test]
         public void FrequencyTimer_CreatesValidHandle()
         {
-            var handle = Timer.Create<FrequencyTimer>(10f);
+            var handle = App.Get<Timer>().CreateTimer<FrequencyTimer>(10f);
             
             Assert.IsTrue(handle.IsValid);
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         #endregion
@@ -407,14 +407,14 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void CancelledTimer_Operations_DoNotThrow()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Timer.Cancel(handle);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CancelTimer(handle);
             
-            Assert.DoesNotThrow(() => Timer.Pause(handle));
-            Assert.DoesNotThrow(() => Timer.Resume(handle));
-            Assert.DoesNotThrow(() => Timer.GetProgress(handle));
-            Assert.DoesNotThrow(() => Timer.Reset(handle));
-            Assert.DoesNotThrow(() => Timer.SetTimeScale(handle, 1f));
+            Assert.DoesNotThrow(() => App.Get<Timer>().Pause(handle));
+            Assert.DoesNotThrow(() => App.Get<Timer>().Resume(handle));
+            Assert.DoesNotThrow(() => App.Get<Timer>().GetProgress(handle));
+            Assert.DoesNotThrow(() => App.Get<Timer>().ResetTimer(handle));
+            Assert.DoesNotThrow(() => App.Get<Timer>().SetTimeScale(handle, 1f));
         }
 
         [Test]
@@ -422,10 +422,10 @@ namespace Eraflo.Catalyst.Tests
         {
             var handle = TimerHandle.None;
             
-            Assert.AreEqual(0f, Timer.GetCurrentTime(handle));
-            Assert.AreEqual(0f, Timer.GetProgress(handle));
-            Assert.IsTrue(Timer.IsFinished(handle));
-            Assert.IsFalse(Timer.IsRunning(handle));
+            Assert.AreEqual(0f, App.Get<Timer>().GetCurrentTime(handle));
+            Assert.AreEqual(0f, App.Get<Timer>().GetProgress(handle));
+            Assert.IsTrue(App.Get<Timer>().IsFinished(handle));
+            Assert.IsFalse(App.Get<Timer>().IsRunning(handle));
         }
 
         #endregion
@@ -436,20 +436,20 @@ namespace Eraflo.Catalyst.Tests
         public void IsBurstMode_ReturnsBoolean()
         {
             // Just verify it doesn't throw
-            bool isBurst = Timer.IsBurstMode;
+            bool isBurst = App.Get<Timer>().IsBurstMode;
             Assert.That(isBurst, Is.TypeOf<bool>());
         }
 
         [Test]
         public void Count_ReturnsCorrectValue()
         {
-            Assert.AreEqual(0, Timer.Count);
+            Assert.AreEqual(0, App.Get<Timer>().Count);
             
-            Timer.Create<CountdownTimer>(1f);
-            Assert.AreEqual(1, Timer.Count);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(1f);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
             
-            Timer.Create<CountdownTimer>(1f);
-            Assert.AreEqual(2, Timer.Count);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(1f);
+            Assert.AreEqual(2, App.Get<Timer>().Count);
         }
 
         #endregion
@@ -459,12 +459,12 @@ namespace Eraflo.Catalyst.Tests
         [UnityTest]
         public IEnumerator Timer_Updates_AfterFrame()
         {
-            var handle = Timer.Create<CountdownTimer>(1f);
-            float initialTime = Timer.GetCurrentTime(handle);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(1f);
+            float initialTime = App.Get<Timer>().GetCurrentTime(handle);
             
             yield return null;
             
-            float newTime = Timer.GetCurrentTime(handle);
+            float newTime = App.Get<Timer>().GetCurrentTime(handle);
             
             Assert.Less(newTime, initialTime);
         }
@@ -472,11 +472,11 @@ namespace Eraflo.Catalyst.Tests
         [UnityTest]
         public IEnumerator StopwatchTimer_CountsUp()
         {
-            var handle = Timer.Create<StopwatchTimer>(0f);
+            var handle = App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
             
             yield return null;
             
-            float time = Timer.GetCurrentTime(handle);
+            float time = App.Get<Timer>().GetCurrentTime(handle);
             
             Assert.Greater(time, 0f);
         }
@@ -484,13 +484,13 @@ namespace Eraflo.Catalyst.Tests
         [UnityTest]
         public IEnumerator PausedTimer_DoesNotUpdate()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Timer.Pause(handle);
-            float initialTime = Timer.GetCurrentTime(handle);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().Pause(handle);
+            float initialTime = App.Get<Timer>().GetCurrentTime(handle);
             
             yield return null;
             
-            float newTime = Timer.GetCurrentTime(handle);
+            float newTime = App.Get<Timer>().GetCurrentTime(handle);
             
             Assert.AreEqual(initialTime, newTime, 0.001f);
         }
@@ -498,10 +498,10 @@ namespace Eraflo.Catalyst.Tests
         [UnityTest]
         public IEnumerator OnTickCallback_IsInvoked()
         {
-            var handle = Timer.Create<CountdownTimer>(5f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             bool tickCalled = false;
             
-            Timer.On<OnTick, float>(handle, (dt) => tickCalled = true);
+            App.Get<Timer>().On<OnTick, float>(handle, (dt) => tickCalled = true);
             
             yield return null;
             
@@ -511,30 +511,30 @@ namespace Eraflo.Catalyst.Tests
         [UnityTest]
         public IEnumerator Timer_CompletesAfterDuration()
         {
-            var handle = Timer.Create<CountdownTimer>(0.1f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(0.1f);
             bool completed = false;
             
-            Timer.On<OnComplete>(handle, () => completed = true);
+            App.Get<Timer>().On<OnComplete>(handle, () => completed = true);
             
             yield return new WaitForSeconds(0.2f);
             
             Assert.IsTrue(completed);
-            Assert.IsTrue(Timer.IsFinished(handle));
+            Assert.IsTrue(App.Get<Timer>().IsFinished(handle));
         }
 
         [UnityTest]
         public IEnumerator Reset_RestoresTimerAfterCompletion()
         {
-            var handle = Timer.Create<CountdownTimer>(0.1f);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(0.1f);
             
             yield return new WaitForSeconds(0.2f);
             
-            Assert.IsTrue(Timer.IsFinished(handle));
+            Assert.IsTrue(App.Get<Timer>().IsFinished(handle));
             
-            Timer.Reset(handle);
+            App.Get<Timer>().ResetTimer(handle);
             
-            Assert.IsFalse(Timer.IsFinished(handle));
-            Assert.IsTrue(Timer.IsRunning(handle));
+            Assert.IsFalse(App.Get<Timer>().IsFinished(handle));
+            Assert.IsTrue(App.Get<Timer>().IsRunning(handle));
         }
 
         #endregion
@@ -568,10 +568,10 @@ namespace Eraflo.Catalyst.Tests
             TimerPresets.Clear();
             TimerPresets.Define("QuickFade", 0.5f);
             
-            var handle = Timer.FromPreset("QuickFade");
+            var handle = App.Get<Timer>().CreateFromPreset("QuickFade");
             
             Assert.IsTrue(handle.IsValid);
-            Assert.AreEqual(1, Timer.Count);
+            Assert.AreEqual(1, App.Get<Timer>().Count);
         }
 
         [Test]
@@ -581,7 +581,7 @@ namespace Eraflo.Catalyst.Tests
             TimerPresets.Define("TestWithCallback", 1f);
             bool called = false;
             
-            var handle = Timer.FromPreset("TestWithCallback", () => called = true);
+            var handle = App.Get<Timer>().CreateFromPreset("TestWithCallback", () => called = true);
             
             Assert.IsTrue(handle.IsValid);
             // Callback registration is tested by checking handle is valid
@@ -592,7 +592,7 @@ namespace Eraflo.Catalyst.Tests
         {
             TimerPresets.Clear();
             
-            var handle = Timer.FromPreset("NonExistent");
+            var handle = App.Get<Timer>().CreateFromPreset("NonExistent");
             
             Assert.IsFalse(handle.IsValid);
         }
@@ -604,74 +604,74 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Metrics_TotalCreated_IncreasesOnCreate()
         {
-            Timer.Metrics.Reset();
+            App.Get<Timer>().Metrics.Reset();
             
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Create<StopwatchTimer>(0f);
-            Timer.Create<DelayTimer>(3f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
+            App.Get<Timer>().CreateTimer<DelayTimer>(3f);
             
-            Assert.AreEqual(3, Timer.Metrics.TotalCreated);
+            Assert.AreEqual(3, App.Get<Timer>().Metrics.TotalCreated);
         }
 
         [Test]
         public void Metrics_TotalCancelled_IncreasesOnCancel()
         {
-            Timer.Metrics.Reset();
+            App.Get<Timer>().Metrics.Reset();
             
-            var h1 = Timer.Create<CountdownTimer>(5f);
-            var h2 = Timer.Create<CountdownTimer>(5f);
-            Timer.Cancel(h1);
+            var h1 = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            var h2 = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CancelTimer(h1);
             
-            Assert.AreEqual(1, Timer.Metrics.TotalCancelled);
+            Assert.AreEqual(1, App.Get<Timer>().Metrics.TotalCancelled);
         }
 
         [Test]
         public void Metrics_TotalResets_IncreasesOnReset()
         {
-            Timer.Metrics.Reset();
+            App.Get<Timer>().Metrics.Reset();
             
-            var handle = Timer.Create<CountdownTimer>(5f);
-            Timer.Reset(handle);
-            Timer.Reset(handle);
+            var handle = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().ResetTimer(handle);
+            App.Get<Timer>().ResetTimer(handle);
             
-            Assert.AreEqual(2, Timer.Metrics.TotalResets);
+            Assert.AreEqual(2, App.Get<Timer>().Metrics.TotalResets);
         }
 
         [Test]
         public void Metrics_PeakActiveCount_TracksMaximum()
         {
-            Timer.Metrics.Reset();
+            App.Get<Timer>().Metrics.Reset();
             
-            var h1 = Timer.Create<CountdownTimer>(5f);
-            var h2 = Timer.Create<CountdownTimer>(5f);
-            var h3 = Timer.Create<CountdownTimer>(5f);
-            Timer.Cancel(h1);
-            Timer.Cancel(h2);
+            var h1 = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            var h2 = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            var h3 = App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CancelTimer(h1);
+            App.Get<Timer>().CancelTimer(h2);
             
-            Assert.GreaterOrEqual(Timer.Metrics.PeakActiveCount, 3);
+            Assert.GreaterOrEqual(App.Get<Timer>().Metrics.PeakActiveCount, 3);
         }
 
         [Test]
         public void Metrics_AverageDuration_CalculatesCorrectly()
         {
-            Timer.Metrics.Reset();
+            App.Get<Timer>().Metrics.Reset();
             
-            Timer.Create<CountdownTimer>(2f);
-            Timer.Create<CountdownTimer>(4f);
-            Timer.Create<CountdownTimer>(6f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(2f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(4f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(6f);
             
-            Assert.AreEqual(4f, Timer.Metrics.AverageDuration, 0.01f);
+            Assert.AreEqual(4f, App.Get<Timer>().Metrics.AverageDuration, 0.01f);
         }
 
         [Test]
         public void Metrics_Reset_ClearsAllMetrics()
         {
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Metrics.Reset();
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().Metrics.Reset();
             
-            Assert.AreEqual(0, Timer.Metrics.TotalCreated);
-            Assert.AreEqual(0, Timer.Metrics.TotalCancelled);
-            Assert.AreEqual(0, Timer.Metrics.TotalResets);
+            Assert.AreEqual(0, App.Get<Timer>().Metrics.TotalCreated);
+            Assert.AreEqual(0, App.Get<Timer>().Metrics.TotalCancelled);
+            Assert.AreEqual(0, App.Get<Timer>().Metrics.TotalResets);
         }
 
         #endregion
@@ -681,8 +681,8 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Persistence_SaveAll_ReturnsValidJson()
         {
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Create<StopwatchTimer>(0f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<StopwatchTimer>(0f);
             
             string json = TimerPersistence.SaveAll();
             
@@ -694,17 +694,17 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Persistence_LoadAll_RestoresTimers()
         {
-            Timer.Create<CountdownTimer>(5f);
-            Timer.Create<CountdownTimer>(10f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(10f);
             string json = TimerPersistence.SaveAll();
             
-            Timer.Clear();
-            Assert.AreEqual(0, Timer.Count);
+            App.Get<Timer>().Clear();
+            Assert.AreEqual(0, App.Get<Timer>().Count);
             
             var handles = TimerPersistence.LoadAll(json);
             
             Assert.AreEqual(2, handles.Count);
-            Assert.AreEqual(2, Timer.Count);
+            Assert.AreEqual(2, App.Get<Timer>().Count);
         }
 
         [Test]
@@ -718,7 +718,7 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public void Persistence_Clear_ClearsRegistry()
         {
-            Timer.Create<CountdownTimer>(5f);
+            App.Get<Timer>().CreateTimer<CountdownTimer>(5f);
             TimerPersistence.SaveAll();
             
             TimerPersistence.Clear();
