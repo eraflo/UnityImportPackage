@@ -15,6 +15,15 @@ namespace Eraflo.Catalyst
     }
 
     /// <summary>
+    /// Supported asset loading methods.
+    /// </summary>
+    public enum AssetProviderType
+    {
+        Resources,
+        Addressables
+    }
+
+    /// <summary>
     /// Global settings for the package.
     /// </summary>
     public class PackageSettings : ScriptableObject
@@ -35,6 +44,9 @@ namespace Eraflo.Catalyst
         [SerializeField] private bool _useBurstTimers = false;
         [SerializeField] private bool _enableTimerDebugLogs = false;
         [SerializeField] private bool _enableDebugOverlay = false;
+
+        // Assets
+        [SerializeField] private AssetProviderType _assetProviderType = AssetProviderType.Resources;
 
         public static PackageSettings Instance
         {
@@ -62,6 +74,7 @@ namespace Eraflo.Catalyst
         public bool UseBurstTimers => _useBurstTimers;
         public bool EnableTimerDebugLogs => _enableTimerDebugLogs;
         public bool EnableDebugOverlay => _enableDebugOverlay;
+        public AssetProviderType AssetProviderType => _assetProviderType;
 
         public static void Reload() { _instance = null; _ = Instance; }
     }
