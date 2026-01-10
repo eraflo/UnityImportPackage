@@ -11,10 +11,18 @@ namespace Eraflo.Catalyst.Tests
 {
     public class SaveSystemTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            var nm = App.Get<NetworkManager>();
+            nm.Reset();
+            nm.SetBackend(new MockNetworkBackend(isServer: true, isClient: true, isConnected: true));
+        }
+
         [Test]
         public void JsonSerializer_SerializesUnityTypes()
         {
-            var serializer = new Eraflo.Catalyst.Core.Save.JsonSerializer();
+            var serializer = new JsonSerializer();
             var data = new TestData
             {
                 Pos = new Vector3(1.1f, 2.2f, 3.3f),
@@ -35,17 +43,14 @@ namespace Eraflo.Catalyst.Tests
         [Test]
         public async Task SaveManager_Aborts_WhenNotServer()
         {
-            // Setup
-            var nm = App.Get<NetworkManager>();
-            nm.Reset();
-            var mock = new MockNetworkBackend(isServer: false, isClient: true, isConnected: true);
-            nm.SetBackend(mock);
+            // Override setup to be a client
+            App.Get<NetworkManager>().SetBackend(new MockNetworkBackend(isServer: false));
 
-            var saveManager = new SaveManager();
-            ((IGameService)saveManager).Initialize();
+            var sm = new SaveManager();
+            ((IGameService)sm).Initialize();
 
             // Test
-            bool success = await saveManager.SaveGame("TestSave");
+            bool success = await sm.SaveGame("TestSave");
 
             Assert.IsFalse(success, "Save should fail when not a server");
         }

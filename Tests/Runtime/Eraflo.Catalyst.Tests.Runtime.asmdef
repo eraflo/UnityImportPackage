@@ -3,8 +3,13 @@
     "rootNamespace": "Eraflo.Catalyst.Tests",
     "references": [
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
-        "Eraflo.Catalyst.Runtime"
+        "Eraflo.Catalyst.Runtime",
+        "Unity.Nuget.Newtonsoft-Json",
+        "Unity.Netcode.Runtime",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
