@@ -1,4 +1,5 @@
 using UnityEngine;
+using Eraflo.Catalyst.Core.Blackboard;
 
 namespace Eraflo.Catalyst.BehaviourTree
 {

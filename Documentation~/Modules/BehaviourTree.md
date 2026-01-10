@@ -200,26 +200,27 @@ public class MyService : ServiceNode
 
 ## Blackboard
 
-Shared data container for nodes. Supports reactive callbacks.
+Shared data container for nodes, now powered by the **Core Blackboard System**. 
 
-**Supported Types:** `bool`, `int`, `float`, `string`, `Vector3`, `GameObject`, `Transform`
+### Scoping & Scoped AI
+By default, each `BehaviourTree` instance has its own independent blackboard. However, you can use the **Hierarchical Scoping** feature to let your AI inherit data from a global context (e.g., world temperature, game state) while keeping local overrides (e.g., unit health, current target).
 
 ```csharp
-// Set values
+// Set values locally on the tree's blackboard
 Blackboard.Set("target", transform.position);
 Blackboard.Set("health", 100);
 
-// Get values
+// Get values (will search parent if not found locally)
 Vector3 pos = Blackboard.Get<Vector3>("target");
-
-// Check existence
-if (Blackboard.Contains("key")) { ... }
 
 // Reactive: Listen to changes
 Blackboard.RegisterListener("health", (oldVal, newVal) => {
     Debug.Log($"Health changed: {oldVal} → {newVal}");
 });
 ```
+
+> [!TIP]
+> To link an AI's blackboard to the global state, you can set `BlackboardManager.Global` as the parent of the tree's blackboard during initialization.
 
 ---
 
@@ -359,7 +360,7 @@ Runtime/BehaviourTree/
 │   ├── IsInRange.cs, HasLineOfSight.cs
 │   └── Blackboard/ → BlackboardCondition.cs
 └── Core/
-    ├── Node.cs, BehaviourTree.cs, Blackboard.cs
+    ├── Node.cs, BehaviourTree.cs
     └── TargetProvider.cs, BlackboardTargetProvider.cs
 ```
 
@@ -377,6 +378,7 @@ graph TB
         T[Timer]
         EB[EventBus]
         NM[NetworkManager]
+        BM[BlackboardManager]
     end
 
     subgraph "Behaviour Tree System"
@@ -388,9 +390,11 @@ graph TB
     SL -- "Get<T>" --> T
     SL -- "Get<T>" --> EB
     SL -- "Get<T>" --> NM
+    SL -- "Get<T>" --> BM
 
     Runner --> Tree
     Runner --> BB
+    BB -- "Parent (Optional)" --> BM
     
     Tree -- "Evaluate" --> Nodes[Nodes]
     Nodes -- "Uses" --> T
@@ -401,6 +405,7 @@ graph TB
 | System | Usage |
 |--------|-------|
 | **Service Locator** | Core modules are accessed via `App.Get<T>()`. |
+| **Blackboard** | Core blackboard system handles variable storage, scoping, and persistence. |
 | **Timer** | `Wait`, `Cooldown` use `App.Get<Timer>()` internally. |
 | **EventBus** | `RaiseEvent`, `WaitForEvent` nodes use `App.Get<EventBus>()`. |
 | **AI Navigation** | `MoveTo` uses `NavMeshAgent`. |

@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Eraflo.Catalyst.BehaviourTree;
+using Eraflo.Catalyst.Core.Blackboard;  
 using BT = Eraflo.Catalyst.BehaviourTree.BehaviourTree;
 
 namespace Eraflo.Catalyst.Tests.Runtime

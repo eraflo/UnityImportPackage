@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Eraflo.Catalyst.Core.Blackboard;
 
 #if UNITY_EDITOR
 using UnityEditor;

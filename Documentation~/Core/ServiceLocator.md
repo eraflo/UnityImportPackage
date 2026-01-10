@@ -104,6 +104,7 @@ To maintain consistency, follow these priority brackets when adding new services
 | :--- | :--- | :--- |
 | `EventBus` | -10 | Core |
 | `Timer` | 0 | Core |
+| `BlackboardManager` | 5 | Core |
 | `Pool` | 10 | Infrastructure |
 | `SaveManager` | 10 | Infrastructure |
 | `NetworkManager` | 20 | Infrastructure |

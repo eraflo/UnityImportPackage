@@ -149,7 +149,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             }
             
             var keys = _tree.Blackboard.GetAllKeys();
-            if (keys.Length == 0)
+            if (keys.Count == 0)
             {
                 _contentContainer.Add(_emptyLabel);
                 return;
@@ -170,7 +170,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree.Panels
             var currentKeys = _tree.Blackboard.GetAllKeys();
             var rowCount = _contentContainer.Query(className: "blackboard-row").ToList().Count;
             
-            if (currentKeys.Length != rowCount)
+            if (currentKeys.Count != rowCount)
             {
                 RefreshKeys();
                 return;
