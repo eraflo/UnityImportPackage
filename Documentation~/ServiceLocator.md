@@ -10,6 +10,28 @@ The Service Locator (or Service Registry) is the architectural backbone of Erafl
 - **Dependency Management**: Controlled initialization order via `Priority`.
 - **Global Access**: Access any service from anywhere via the unified `App` facade.
 
+### Architecture & Discovery
+
+The initialization process uses Reflection to identify and configure services without manual registration.
+
+```mermaid
+flowchart TD
+    subgraph Discovery ["Discovery Phase (RuntimeInitializeOnLoad)"]
+        Scan[Scan Assemblies] --> Find["Filter [Service] Attribute"]
+        Find --> Map["Create Type -> Service Mapping"]
+        Map --> Sort["Sort by Priority (Ascending)"]
+    end
+    
+    subgraph Lifecycle ["Lifecycle Initialization"]
+        Sort --> Instantiate[Instantiate C# Classes]
+        Instantiate --> Register[Add to Service Map]
+        Register --> Init["Init IGameService.Initialize()"]
+    end
+
+    App[App.Get] --> Get["Service Map Lookup"]
+    Get --> S[Service Instance]
+```
+
 ## Usage
 
 ### Accessing a Service
@@ -65,17 +87,57 @@ The `Priority` property in the `[Service]` attribute determines the order in whi
 - **Lower Priority**: Initialized first, Updated first.
 - **Higher Priority**: Initialized later, Updated later.
 
-Default values:
-- `Timer`: 0
-- `EventBus`: -10 (High priority)
-- `Pool`: 10
-- `NetworkManager`: 20
+#### Architectural Layers
+
+To maintain consistency, follow these priority brackets when adding new services:
+
+| Priority Bracket | Layer | Description |
+| :--- | :--- | :--- |
+| **-100 to 0** | **Core** | Critical infrastructure (Events, Timers, Memory). |
+| **1 to 20** | **Infrastructure** | Global data systems (Networking, Persistence, Pooling). |
+| **21 to 50** | **Gameplay** | High-level game systems (AI, Combat, Quests). |
+| **51 to 100+** | **Auxiliary** | Non-essential utilities, debug tools, and exporters. |
+
+#### Current Package Priorities
+
+| Service | Priority | Layer |
+| :--- | :--- | :--- |
+| `EventBus` | -10 | Core |
+| `Timer` | 0 | Core |
+| `Pool` | 10 | Infrastructure |
+| `SaveManager` | 10 | Infrastructure |
+| `NetworkManager` | 20 | Infrastructure |
+| `LogExporter` | 100 | Auxiliary |
 
 ## PlayerLoop Integration
 
 The Service Locator automatically injects its lifecycle into Unity's `PlayerLoop`. You do **not** need to place any bootstrappers or MonoBehaviours in your scene for core systems to work. 
 
 Initialization happens at `AfterAssembliesLoaded`, and updates are hooked into the `Update` and `FixedUpdate` system groups.
+
+```mermaid
+sequenceDiagram
+    participant U as Unity Engine
+    participant SL as Service Locator
+    participant S as Service Instance
+
+    U->>SL: Initial Load (AfterAssembliesLoaded)
+    SL->>SL: Introspect & Sort
+    SL->>S: Initialize()
+    
+    loop Every Frame
+        U->>SL: Update Lifecycle
+        SL->>S: OnUpdate() (if IUpdatable)
+    end
+
+    loop Every Physics Frame
+        U->>SL: FixedUpdate Lifecycle
+        SL->>S: OnFixedUpdate() (if IFixedUpdatable)
+    end
+
+    U->>SL: OnApplicationQuit
+    SL->>S: Shutdown()
+```
 
 ## Static Facades
 

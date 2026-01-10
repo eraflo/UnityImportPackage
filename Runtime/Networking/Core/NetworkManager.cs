@@ -12,7 +12,7 @@ namespace Eraflo.Catalyst.Networking
     /// Can be used as a static facade or as a service via Service Locator.
     /// </summary>
     [Service(Priority = 20)]
-    public class NetworkManager : IGameService
+    public class NetworkManager : IGameService, INetworkService
     {
         private INetworkBackend _backend;
         private readonly NetworkBackendRegistry _backends = new NetworkBackendRegistry();
