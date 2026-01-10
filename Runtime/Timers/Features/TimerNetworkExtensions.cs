@@ -12,7 +12,8 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public static uint MakeNetworked(this TimerHandle handle, bool serverAuthoritative = true)
         {
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            var network = App.Get<NetworkManager>();
+            var handler = network?.Handlers.Get<TimerNetworkHandler>();
             if (handler == null) return 0;
             return handler.MakeNetworked(handle, serverAuthoritative);
         }
@@ -22,7 +23,8 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public static void RemoveNetworking(this TimerHandle handle)
         {
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            var network = App.Get<NetworkManager>();
+            var handler = network?.Handlers.Get<TimerNetworkHandler>();
             handler?.Remove(handle);
         }
 
@@ -31,7 +33,8 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public static uint GetNetworkId(this TimerHandle handle)
         {
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            var network = App.Get<NetworkManager>();
+            var handler = network?.Handlers.Get<TimerNetworkHandler>();
             return handler?.GetId(handle) ?? 0;
         }
 
@@ -40,7 +43,8 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public static void BroadcastTimerSync()
         {
-            var handler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
+            var network = App.Get<NetworkManager>();
+            var handler = network?.Handlers.Get<TimerNetworkHandler>();
             handler?.BroadcastSync();
         }
     }

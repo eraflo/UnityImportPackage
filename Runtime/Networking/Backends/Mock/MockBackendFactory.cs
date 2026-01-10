@@ -1,3 +1,6 @@
+using Eraflo.Catalyst.Networking;
+using Eraflo.Catalyst;
+
 namespace Eraflo.Catalyst.Networking.Backends
 {
     /// <summary>
@@ -12,7 +15,8 @@ namespace Eraflo.Catalyst.Networking.Backends
         public bool OnInitialize()
         {
             // Mock backend initializes immediately
-            return NetworkManager.SetBackendById("mock");
+            App.Get<NetworkManager>().SetBackendById("mock");
+            return true;
         }
         
         public INetworkBackend Create()

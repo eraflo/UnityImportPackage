@@ -28,7 +28,7 @@ namespace Eraflo.Catalyst.Events
             base.OnEnable();
             if (_enableNetwork)
             {
-                _handler = NetworkManager.Handlers.Get<EventNetworkHandler>();
+                _handler = App.Get<NetworkManager>()?.Handlers.Get<EventNetworkHandler>();
                 _handler?.Register(this);
             }
         }
@@ -52,7 +52,7 @@ namespace Eraflo.Catalyst.Events
             // Lazy get handler if not yet available (ScriptableObject timing)
             if (_enableNetwork && _handler == null)
             {
-                _handler = NetworkManager.Handlers.Get<EventNetworkHandler>();
+                _handler = App.Get<NetworkManager>()?.Handlers.Get<EventNetworkHandler>();
                 _handler?.Register(this);
             }
 
@@ -92,7 +92,7 @@ namespace Eraflo.Catalyst.Events
             base.OnEnable();
             if (_enableNetwork)
             {
-                _handler = NetworkManager.Handlers.Get<EventNetworkHandler>();
+                _handler = App.Get<NetworkManager>()?.Handlers.Get<EventNetworkHandler>();
                 _handler?.Register(this);
             }
         }

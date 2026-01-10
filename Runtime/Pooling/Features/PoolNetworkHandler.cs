@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Eraflo.Catalyst.Networking;
 
 namespace Eraflo.Catalyst.Pooling
 {
@@ -22,14 +23,16 @@ namespace Eraflo.Catalyst.Pooling
 
         public void OnRegistered()
         {
-            Networking.NetworkManager.On<Networking.PoolSpawnMessage>(HandleSpawn);
-            Networking.NetworkManager.On<Networking.PoolDespawnMessage>(HandleDespawn);
+            var network = App.Get<NetworkManager>();
+            network.On<Networking.PoolSpawnMessage>(HandleSpawn);
+            network.On<Networking.PoolDespawnMessage>(HandleDespawn);
         }
 
         public void OnUnregistered()
         {
-            Networking.NetworkManager.Off<Networking.PoolSpawnMessage>(HandleSpawn);
-            Networking.NetworkManager.Off<Networking.PoolDespawnMessage>(HandleDespawn);
+            var network = App.Get<NetworkManager>();
+            network.Off<Networking.PoolSpawnMessage>(HandleSpawn);
+            network.Off<Networking.PoolDespawnMessage>(HandleDespawn);
             Clear();
         }
 
@@ -81,7 +84,7 @@ namespace Eraflo.Catalyst.Pooling
         public void BroadcastSpawn(PoolHandle<GameObject> handle, GameObject prefab, Vector3 pos, Quaternion rot, Networking.NetworkTarget target = Networking.NetworkTarget.Clients)
         {
             var id = GetId(handle);
-            if (id == 0 || !Networking.NetworkManager.IsConnected) return;
+            if (id == 0 || !App.Get<NetworkManager>().IsConnected) return;
 
             var msg = new Networking.PoolSpawnMessage
             {
@@ -90,7 +93,9 @@ namespace Eraflo.Catalyst.Pooling
                 Position = pos,
                 Rotation = rot
             };
-            Networking.NetworkManager.Send(msg, target);
+            var network = App.Get<NetworkManager>();
+            network.SendToClients(msg); // Default to Clients for spawn
+            network.Send(msg, target);
         }
 
         /// <summary>
@@ -101,9 +106,10 @@ namespace Eraflo.Catalyst.Pooling
             var id = GetId(handle);
             if (id == 0) return;
 
-            if (Networking.NetworkManager.IsConnected)
+            var network = App.Get<NetworkManager>();
+            if (network.IsConnected)
             {
-                Networking.NetworkManager.Send(new Networking.PoolDespawnMessage { NetworkId = id }, target);
+                network.Send(new Networking.PoolDespawnMessage { NetworkId = id }, target);
             }
 
             Unregister(handle);
@@ -117,7 +123,7 @@ namespace Eraflo.Catalyst.Pooling
         private void HandleDespawn(Networking.PoolDespawnMessage msg)
         {
             var handle = GetHandle(msg.NetworkId);
-            if (handle.IsValid) Pool.Despawn(handle);
+            if (handle.IsValid) App.Get<Pool>().DespawnObject(handle);
             OnDespawnReceived?.Invoke(msg.NetworkId);
         }
 

@@ -79,7 +79,7 @@ namespace Eraflo.Catalyst.Timers
         public static string SaveAll()
         {
             var data = new TimerPersistenceData();
-            var activeTimers = Timer.GetActiveTimers();
+            var activeTimers = App.Get<Timer>().GetActiveTimers();
 
             foreach (var timerInfo in activeTimers)
             {
@@ -177,13 +177,13 @@ namespace Eraflo.Catalyst.Timers
 
             try
             {
-                var method = typeof(Timer).GetMethod("Create", new[] { typeof(TimerConfig) });
+                var method = typeof(Timer).GetMethod("CreateTimer", new[] { typeof(TimerConfig) });
                 var generic = method.MakeGenericMethod(timerType);
-                var handle = (TimerHandle)generic.Invoke(null, new object[] { config });
+                var handle = (TimerHandle)generic.Invoke(App.Get<Timer>(), new object[] { config });
 
                 if (!data.IsRunning)
                 {
-                    Timer.Pause(handle);
+                    App.Get<Timer>().Pause(handle);
                 }
 
                 return handle;

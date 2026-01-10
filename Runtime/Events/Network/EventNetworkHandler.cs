@@ -19,12 +19,14 @@ namespace Eraflo.Catalyst.Events
 
         public void OnRegistered()
         {
-            NetworkManager.On<EventChannelMessage>(HandleEventMessage);
+            var network = App.Get<NetworkManager>();
+            network.On<EventChannelMessage>(HandleEventMessage);
         }
 
         public void OnUnregistered()
         {
-            NetworkManager.Off<EventChannelMessage>(HandleEventMessage);
+            var network = App.Get<NetworkManager>();
+            network.Off<EventChannelMessage>(HandleEventMessage);
             Clear();
         }
 
@@ -34,7 +36,12 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Whether network is available.
         /// </summary>
-        public bool IsNetworkAvailable => NetworkManager.HasBackend && NetworkManager.IsConnected;
+        public bool IsNetworkAvailable {
+            get {
+                var network = App.Get<NetworkManager>();
+                return network != null && network.HasBackend && network.IsConnected;
+            }
+        }
 
         /// <summary>
         /// Registers a void channel for receiving.
@@ -69,7 +76,7 @@ namespace Eraflo.Catalyst.Events
             if (!IsNetworkAvailable) return;
 
             var msg = new EventChannelMessage { ChannelId = channelId, Payload = null };
-            NetworkManager.Send(msg, target);
+            App.Get<NetworkManager>().Send(msg, target);
         }
 
         /// <summary>
@@ -80,7 +87,7 @@ namespace Eraflo.Catalyst.Events
             if (!IsNetworkAvailable) return;
 
             var msg = new EventChannelMessage { ChannelId = channelId, Payload = payload };
-            NetworkManager.Send(msg, target);
+            App.Get<NetworkManager>().Send(msg, target);
         }
 
         private void HandleEventMessage(EventChannelMessage msg)

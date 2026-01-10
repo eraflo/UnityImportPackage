@@ -21,13 +21,14 @@ A high-performance, handle-based timer system with automatic backend selection a
 
 ```mermaid
 graph TB
-    subgraph "User Code"
-        UC[Your Script]
+    subgraph "Service Locator"
+        SL["ServiceLocator / App"]
     end
 
     subgraph "Timer API"
-        TF["Timer (Static Facade)"]
+        TF["Timer (Service)"]
         TH["TimerHandle"]
+        TCB["TimerCallbacks"]
     end
 
     subgraph "Features"
@@ -37,14 +38,6 @@ graph TB
         TPE[TimerPersistence]
         TM[TimerMetrics]
         NS[NetworkTimerSync]
-    end
-
-    subgraph "Callbacks"
-        TCB[TimerCallbacks]
-        CB1[OnComplete]
-        CB2[OnTick]
-        CB3[OnRepeat]
-        CB4["OnPause/Resume/Reset/Cancel"]
     end
 
     subgraph "Backends"
@@ -61,7 +54,7 @@ graph TB
         FT[FrequencyTimer]
     end
 
-    UC --> TF
+    SL -- "Get<Timer>()" --> TF
     TF --> TH
     TF --> TCB
     TF --> IB
@@ -72,11 +65,6 @@ graph TB
     TPE --> TF
     TM --> TF
     NS --> TF
-    
-    TCB --> CB1
-    TCB --> CB2
-    TCB --> CB3
-    TCB --> CB4
     
     IB --> SB
     IB --> BB
@@ -98,28 +86,23 @@ graph TB
 
 ## Quick Start
 
+The Timer system is managed by the [Service Locator](ServiceLocator.md). Access it via `App.Get<Timer>()`.
+
 ```csharp
-using Eraflo.UnityImportPackage.Timers;
+using Eraflo.Catalyst.Timers;
 
-// Create timers
-var countdown = Timer.Create<CountdownTimer>(5f);
-var stopwatch = Timer.Create<StopwatchTimer>(0f);
+// 1. Get the service
+var timer = App.Get<Timer>();
 
-// Simple delay
-Timer.Delay(2f, () => Debug.Log("Done!"));
+// 2. Create a delay
+var handle = timer.CreateDelay(2f, () => Debug.Log("Done!"));
 
-// Events
-Timer.On<OnComplete>(countdown, () => Debug.Log("Finished!"));
-Timer.On<OnTick, float>(countdown, (dt) => Debug.Log($"Tick: {dt}"));
+// 3. Subscription (using extension methods or TimerCallbacks)
+TimerCallbacks.On<OnComplete>(handle, () => Debug.Log("Finished!"));
 
-// Control
-Timer.Pause(countdown);
-Timer.Resume(countdown);
-Timer.Cancel(countdown);
-
-// Query
-float progress = Timer.GetProgress(countdown);
-bool done = Timer.IsFinished(countdown);
+// 4. Control & Query
+timer.Pause(handle);
+float progress = timer.GetProgress(handle);
 ```
 
 ---
@@ -141,13 +124,14 @@ bool done = Timer.IsFinished(countdown);
 ### Built-in
 
 ```csharp
-Timer.On<OnComplete>(handle, () => { });           // Finished
-Timer.On<OnTick, float>(handle, (dt) => { });      // Every frame
-Timer.On<OnRepeat, int>(handle, (count) => { });   // Repeat interval
-Timer.On<OnPause>(handle, () => { });
-Timer.On<OnResume>(handle, () => { });
-Timer.On<OnReset>(handle, () => { });
-Timer.On<OnCancel>(handle, () => { });
+var timer = App.Get<Timer>();
+TimerCallbacks.On<OnComplete>(handle, () => { });           // Finished
+TimerCallbacks.On<OnTick, float>(handle, (dt) => { });      // Every frame
+TimerCallbacks.On<OnRepeat, int>(handle, (count) => { });   // Repeat interval
+TimerCallbacks.On<OnPause>(handle, () => { });
+TimerCallbacks.On<OnResume>(handle, () => { });
+TimerCallbacks.On<OnReset>(handle, () => { });
+TimerCallbacks.On<OnCancel>(handle, () => { });
 ```
 
 ### Custom
@@ -167,7 +151,7 @@ public struct DamageTimer : ITimer, ISupportsCallback<OnDamage>
 }
 
 // 3. Use it
-Timer.On<OnDamage, DamageData>(handle, (data) => ApplyDamage(data));
+TimerCallbacks.On<OnDamage, DamageData>(handle, (data) => ApplyDamage(data));
 ```
 
 ---
@@ -175,18 +159,18 @@ Timer.On<OnDamage, DamageData>(handle, (data) => ApplyDamage(data));
 ## Easing Integration
 
 ```csharp
-using Eraflo.UnityImportPackage.EasingSystem;
+var timer = App.Get<Timer>();
 
 // Eased progress
-float eased = Timer.GetEasedProgress(handle, EasingType.ElasticOut);
+float eased = timer.GetEasedProgress(handle, EasingType.ElasticOut);
 
 // Lerp (float, Vector2, Vector3, Quaternion, Color)
-float value = Timer.Lerp(handle, 0f, 100f, EasingType.QuadInOut);
-Vector3 pos = Timer.Lerp(handle, start, end, EasingType.BounceOut);
-Color col = Timer.Lerp(handle, Color.red, Color.blue, EasingType.Linear);
+float value = timer.Lerp(handle, 0f, 100f, EasingType.QuadInOut);
+Vector3 pos = timer.Lerp(handle, start, end, EasingType.BounceOut);
+Color col = timer.Lerp(handle, Color.red, Color.blue, EasingType.Linear);
 
 // Unclamped (for Elastic/Back overshoots)
-float unclamped = Timer.LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
+float unclamped = timer.LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
 ```
 
 ---
@@ -194,7 +178,7 @@ float unclamped = Timer.LerpUnclamped(handle, 0f, 10f, EasingType.ElasticOut);
 ## Timer Chaining
 
 ```csharp
-Timer.Chain()
+App.Get<Timer>().Chain()
     .Delay(1f)
     .Then(() => Debug.Log("Step 1"))
     .Delay(2f)
@@ -206,7 +190,7 @@ Timer.Chain()
 ## Timer Groups
 
 ```csharp
-var group = Timer.CreateGroup("UI Timers");
+var group = App.Get<Timer>().CreateGroup("UI Timers");
 
 var h1 = group.Create<CountdownTimer>(5f);
 var h2 = group.Delay(3f, () => Debug.Log("Done"));
@@ -229,8 +213,9 @@ TimerPresets.Define("UIFade", 0.3f, EasingType.QuadOut);
 TimerPresets.Define<RepeatingTimer>("Heartbeat", 1f);
 
 // Use
-var handle = Timer.FromPreset("UIFade");
-Timer.FromPreset("UIFade", () => OnComplete());
+var timer = App.Get<Timer>();
+var handle = timer.CreateFromPreset("UIFade");
+timer.CreateFromPreset("UIFade", () => OnComplete());
 ```
 
 ---
@@ -255,7 +240,7 @@ TimerPersistence.LoadAll(PlayerPrefs.GetString("Timers"));
 ## Timer Metrics
 
 ```csharp
-var m = Timer.Metrics;
+var m = App.Get<Timer>().Metrics;
 
 m.TotalCreated       // Total timers created
 m.ActiveCount        // Currently active
@@ -265,7 +250,7 @@ m.PeakActiveCount    // Max simultaneous
 m.AverageDuration    // Average initial duration
 m.LastUpdateMs       // Last update time (ms)
 
-Timer.Metrics.Reset();
+App.Get<Timer>().Metrics.Reset();
 ```
 
 ---
@@ -290,9 +275,10 @@ Handlers are auto-registered via `PackageSettings`.
 
 ```csharp
 // SERVER: Create and register a networked timer
-var handle = Timer.Create<CountdownTimer>(10f);
+var timer = App.Get<Timer>();
+var handle = timer.CreateTimer<CountdownTimer>(10f);
 handle.MakeNetworked();  // Extension method
-Timer.Start(handle);
+timer.Start(handle);
 ```
 
 ### Syncing State (Server → Clients)
@@ -325,9 +311,9 @@ See [Networking.md](Networking.md) for details.
 ### Creation
 | Method | Description |
 |--------|-------------|
-| `Timer.Create<T>(float)` | Create timer |
-| `Timer.Delay(float, Action)` | One-shot delay |
-| `Timer.FromPreset(string)` | Create from preset |
+| `CreateTimer<T>(float)` | Create timer |
+| `CreateDelay(float, Action)` | One-shot delay |
+| `CreateFromPreset(string)` | Create from preset |
 
 ### Control
 | Method | Description |

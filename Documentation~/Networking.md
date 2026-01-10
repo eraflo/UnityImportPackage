@@ -6,10 +6,8 @@ Unified, extensible networking abstraction with auto-registration.
 
 ```mermaid
 graph TB
-    subgraph "Configuration"
-        PS[PackageSettings]
-        PS --> |Backend ID| NB
-        PS --> |Handler Mode| NB
+    subgraph "Service Locator"
+        SL["ServiceLocator / App"]
     end
 
     subgraph "Bootstrap"
@@ -18,7 +16,7 @@ graph TB
         NB --> |Register| HR
     end
 
-    subgraph "NetworkManager Facade"
+    subgraph "NetworkManager Service"
         NM[NetworkManager]
         NM --> BR[Backends Registry]
         NM --> MR[Message Router]
@@ -37,25 +35,26 @@ graph TB
         HR --> EH[EventNetworkHandler]
     end
 
-    subgraph "User Code"
+    subgraph "Usage"
+        SL -- "Get<NetworkManager>()" --> NM
         T[Timer] --> |Extension| TH
         P[Pool] --> |Extension| PH
         E[NetworkEventChannel] --> |OnEnable| EH
     end
 ```
 
-## Quick Start
-
 Everything is automatic! Configure in `PackageSettings` and use:
 
 ```csharp
 // Timers
-var handle = Timer.Create<CountdownTimer>(10f);
+var timer = App.Get<Timer>();
+var handle = timer.CreateTimer<CountdownTimer>(10f);
 handle.MakeNetworked();
-Timer.Start(handle);
+timer.Start(handle);
 TimerNetworkExtensions.BroadcastTimerSync();
 
 // Pool - with target selection
+var pool = App.Get<Pool>();
 var (h, id) = PoolNetworkExtensions.SpawnNetworked(prefab, pos, Quaternion.identity, true, NetworkTarget.Clients);
 h.DespawnNetworked(NetworkTarget.All);
 
@@ -99,18 +98,20 @@ public enum NetworkTarget
 Send messages to specific clients (server only):
 
 ```csharp
+var nm = App.Get<NetworkManager>();
+
 // SERVER: Send to one specific client
-NetworkManager.SendToClient(new MyMessage { Data = 42 }, clientId);
+nm.SendToClient(new MyMessage { Data = 42 }, clientId);
 
 // SERVER: Send to multiple specific clients
-NetworkManager.SendToClients(new MyMessage { Data = 42 }, clientA, clientB, clientC);
+nm.SendToClients(new MyMessage { Data = 42 }, clientA, clientB, clientC);
 
 // SERVER: Send to array of clients
 ulong[] teamMembers = GetTeamMembers();
-NetworkManager.SendToClients(new TeamUpdate { Score = 100 }, teamMembers);
+nm.SendToClients(new TeamUpdate { Score = 100 }, teamMembers);
 
 // Get local client ID
-ulong myId = NetworkManager.LocalClientId;
+ulong myId = nm.LocalClientId;
 ```
 
 > [!NOTE]
@@ -124,9 +125,10 @@ ulong myId = NetworkManager.LocalClientId;
 
 ```csharp
 // SERVER: Create and network a timer
-var handle = Timer.Create<CountdownTimer>(5f);
+var timer = App.Get<Timer>();
+var handle = timer.CreateTimer<CountdownTimer>(5f);
 handle.MakeNetworked();
-Timer.Start(handle);
+timer.Start(handle);
 
 // SERVER: Sync all timers to clients
 TimerNetworkExtensions.BroadcastTimerSync();
@@ -195,7 +197,11 @@ public class MyFactory : INetworkBackendFactory
     public string Id => "mybackend";
     public string DisplayName => "My Backend";
     public bool IsAvailable => true;
-    public bool OnInitialize() => NetworkManager.SetBackendById(Id);
+    public bool OnInitialize()
+    {
+        App.Get<NetworkManager>().SetBackendById(Id);
+        return true;
+    }
     public INetworkBackend Create() => new MyBackend();
 }
 ```
@@ -205,16 +211,9 @@ public class MyFactory : INetworkBackendFactory
 ## Custom Message
 
 ```csharp
-public struct MyMessage : INetworkMessage
-{
-    public int Data;
-    
-    public void Serialize(BinaryWriter w) => w.Write(Data);
-    public void Deserialize(BinaryReader r) => Data = r.ReadInt32();
-}
-
-NetworkManager.Send(new MyMessage { Data = 42 }, NetworkTarget.All);
-NetworkManager.On<MyMessage>(msg => Debug.Log(msg.Data));
+var nm = App.Get<NetworkManager>();
+nm.Send(new MyMessage { Data = 42 }, NetworkTarget.All);
+nm.On<MyMessage>(msg => Debug.Log(msg.Data));
 ```
 
 ---

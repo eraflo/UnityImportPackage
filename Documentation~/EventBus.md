@@ -45,7 +45,7 @@ When **Network Backend** is not `None`:
 
 ### Via Code
 ```csharp
-using Eraflo.UnityImportPackage.Events;
+using Eraflo.Catalyst.Events;
 using UnityEngine;
 
 public class ScoreManager : MonoBehaviour
@@ -59,6 +59,13 @@ public class ScoreManager : MonoBehaviour
     
     public void AddScore(int points) => onScoreChanged.Raise(points);
 }
+
+// Direct EventBus usage
+public void ManualSubscribe()
+{
+    var bus = App.Get<EventBus>();
+    bus.Subscribe(onScoreChanged, OnScore);
+}
 ```
 
 ### Via Inspector
@@ -71,18 +78,31 @@ public class ScoreManager : MonoBehaviour
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│               EventBus (static)                     │
-│          Thread-safe subscription manager           │
-└──────────────────────┬──────────────────────────────┘
-                       │
-         ┌─────────────┼─────────────┐
-         ▼             ▼             ▼
-┌────────────────┐ ┌────────────────┐ ┌────────────────┐
-│ Code Subscribe │ │ Inspector      │ │ Network        │
-│ channel.Sub()  │ │ Listener       │ │ Sync           │
-└────────────────┘ └────────────────┘ └────────────────┘
+```mermaid
+graph TB
+    subgraph "Service Locator"
+        SL["ServiceLocator / App"]
+    end
+
+    subgraph "Event Bus API"
+        EB["EventBus (Service)"]
+        EC["EventChannel"]
+        EL["EventListener"]
+    end
+
+    subgraph "Capabilities"
+        Code["Code Subscribe"]
+        Insp["Inspector Listener"]
+        Net["Network Sync"]
+    end
+
+    SL -- "Get<EventBus>()" --> EB
+    EB -- "Manages" --> EC
+    EC -- "Notifies" --> EL
+    
+    EC --- Code
+    EL --- Insp
+    EC --- Net
 ```
 
 ### Safety Features
@@ -278,7 +298,7 @@ myNetworkChannel.RaiseLocal();
 
 ```csharp
 // CLIENT or SERVER: Subscribe to receive
-var handler = NetworkManager.Handlers.Get<EventNetworkHandler>();
+var handler = App.Get<NetworkManager>().Handlers.Get<EventNetworkHandler>();
 handler.OnEventReceived += (channelId, payload) => { /* handle */ };
 ```
 
@@ -286,7 +306,15 @@ See [Networking.md](Networking.md) for details.
 
 ---
 
-## API Reference
+### EventBus (Service)
+
+| Method | Description |
+|--------|-------------|
+| `Subscribe(channel, callback)` | Add subscriber to channel |
+| `Unsubscribe(channel, callback)` | Remove subscriber |
+| `Raise(channel, [value])` | (Internal) Raise event |
+| `Clear()` | Clear all subscriptions |
+| `GetSubscriberCount(channel)` | Get count for channel |
 
 ### EventChannel / EventChannel\<T\>
 

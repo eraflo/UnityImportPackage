@@ -2,70 +2,76 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using UnityEngine;
+using Eraflo.Catalyst;
 
 namespace Eraflo.Catalyst.Pooling
 {
     /// <summary>
-    /// Static facade for the pooling system.
+    /// API for the pooling system.
+    /// Can be used as a service via Service Locator.
     /// Provides unified access to generic and prefab pools.
     /// </summary>
-    public static class Pool
+    [Service(Priority = 10)]
+    public class Pool : IGameService, IUpdatable
     {
-        private static readonly Dictionary<Type, object> _genericPools = new Dictionary<Type, object>();
-        private static readonly Dictionary<int, PrefabPool> _prefabPools = new Dictionary<int, PrefabPool>();
-        private static readonly ConcurrentQueue<Action> _pendingOperations = new ConcurrentQueue<Action>();
-        private static readonly object _lock = new object();
+        private readonly Dictionary<Type, object> _genericPools = new Dictionary<Type, object>();
+        private readonly Dictionary<int, PrefabPool> _prefabPools = new Dictionary<int, PrefabPool>();
+        private readonly ConcurrentQueue<Action> _pendingOperations = new ConcurrentQueue<Action>();
+        private readonly object _lock = new object();
         
-        private static bool _initialized;
-        private static PoolMetrics _metrics;
+        private bool _initialized;
+        private PoolMetrics _metrics;
 
         /// <summary>Pool system metrics.</summary>
-        public static PoolMetrics Metrics => _metrics ??= new PoolMetrics();
+        public PoolMetrics Metrics => _metrics ??= new PoolMetrics();
 
-        private static bool IsThreadSafe => PackageRuntime.IsThreadSafe;
-        private static bool IsMainThread => PackageRuntime.IsMainThread;
+        private bool IsThreadSafe => PackageRuntime.IsThreadSafe;
+        private bool IsMainThread => PackageRuntime.IsMainThread;
 
-        #region Initialization
+        #region IGameService & Lifecycle
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Initialize()
+        void IGameService.Initialize()
         {
             if (_initialized) return;
             _initialized = true;
             _metrics = new PoolMetrics();
+            
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged += OnEditorPlayModeChanged;
+#endif
+        }
+
+        void IGameService.Shutdown()
+        {
+            ClearAllInternal();
+            _initialized = false;
+            _metrics = null;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged -= OnEditorPlayModeChanged;
+#endif
+        }
+
+        void IUpdatable.OnUpdate()
+        {
+            ProcessPendingOperations();
         }
 
 #if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-        private static void InitEditor()
+        private void OnEditorPlayModeChanged(UnityEditor.PlayModeStateChange state)
         {
-            UnityEditor.EditorApplication.playModeStateChanged += state =>
+            if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
             {
-                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
-                {
-                    Shutdown();
-                }
-            };
+                ((IGameService)this).Shutdown();
+            }
         }
 #endif
 
-        private static void Shutdown()
-        {
-            ClearAll();
-            _initialized = false;
-            _metrics = null;
-        }
-
         #endregion
 
-        #region Generic Pool
 
-        /// <summary>
-        /// Gets an object from the pool.
-        /// </summary>
-        /// <typeparam name="T">Type of object to get.</typeparam>
-        /// <returns>Handle to the pooled object.</returns>
-        public static PoolHandle<T> Get<T>() where T : class, new()
+        #region Generic Pool Methods
+
+        public PoolHandle<T> GetFromPool<T>() where T : class, new()
         {
             var pool = GetOrCreateGenericPool<T>();
             var handle = pool.Get();
@@ -73,22 +79,14 @@ namespace Eraflo.Catalyst.Pooling
             return handle;
         }
 
-        /// <summary>
-        /// Gets an object from the pool with initialization action.
-        /// </summary>
-        public static PoolHandle<T> Get<T>(Action<T> initialize) where T : class, new()
+        public PoolHandle<T> GetFromPool<T>(Action<T> initialize) where T : class, new()
         {
-            var handle = Get<T>();
+            var handle = GetFromPool<T>();
             initialize?.Invoke(handle.Instance);
             return handle;
         }
 
-        /// <summary>
-        /// Returns an object to the pool.
-        /// </summary>
-        /// <typeparam name="T">Type of object.</typeparam>
-        /// <param name="handle">Handle from Get().</param>
-        public static void Release<T>(PoolHandle<T> handle) where T : class, new()
+        public void ReleaseToPool<T>(PoolHandle<T> handle) where T : class, new()
         {
             if (!handle.IsValid) return;
 
@@ -101,26 +99,20 @@ namespace Eraflo.Catalyst.Pooling
             ReleaseInternal(handle);
         }
 
-        private static void ReleaseInternal<T>(PoolHandle<T> handle) where T : class, new()
+        private void ReleaseInternal<T>(PoolHandle<T> handle) where T : class, new()
         {
             var pool = GetOrCreateGenericPool<T>();
             pool.Release(handle);
             Metrics.RecordDespawn();
         }
 
-        /// <summary>
-        /// Pre-allocates objects in a generic pool.
-        /// </summary>
-        public static void Warmup<T>(int count) where T : class, new()
+        public void WarmupPool<T>(int count) where T : class, new()
         {
             var pool = GetOrCreateGenericPool<T>();
             pool.Warmup(count);
         }
 
-        /// <summary>
-        /// Clears a specific generic pool.
-        /// </summary>
-        public static void Clear<T>() where T : class, new()
+        public void ClearPool<T>() where T : class, new()
         {
             if (IsThreadSafe)
             {
@@ -143,7 +135,7 @@ namespace Eraflo.Catalyst.Pooling
             }
         }
 
-        private static GenericPool<T> GetOrCreateGenericPool<T>() where T : class, new()
+        private GenericPool<T> GetOrCreateGenericPool<T>() where T : class, new()
         {
             var type = typeof(T);
 
@@ -170,17 +162,9 @@ namespace Eraflo.Catalyst.Pooling
 
         #endregion
 
-        #region Prefab Pool
+        #region Prefab Pool Methods
 
-        /// <summary>
-        /// Spawns a GameObject from the pool.
-        /// </summary>
-        /// <param name="prefab">Prefab to spawn.</param>
-        /// <param name="position">World position.</param>
-        /// <param name="rotation">World rotation (default identity).</param>
-        /// <param name="parent">Optional parent transform.</param>
-        /// <returns>Handle to the spawned GameObject.</returns>
-        public static PoolHandle<GameObject> Spawn(GameObject prefab, Vector3 position, Quaternion? rotation = null, Transform parent = null)
+        public PoolHandle<GameObject> SpawnObject(GameObject prefab, Vector3 position, Quaternion? rotation = null, Transform parent = null)
         {
             if (prefab == null)
             {
@@ -194,40 +178,20 @@ namespace Eraflo.Catalyst.Pooling
             return handle;
         }
 
-        /// <summary>
-        /// Spawns a GameObject from the pool at origin.
-        /// </summary>
-        public static PoolHandle<GameObject> Spawn(GameObject prefab)
+        public PoolHandle<GameObject> SpawnObjectTimed(GameObject prefab, Vector3 position, float duration, Quaternion? rotation = null)
         {
-            return Spawn(prefab, Vector3.zero);
-        }
-
-        /// <summary>
-        /// Spawns a GameObject that auto-despawns after duration.
-        /// </summary>
-        /// <param name="prefab">Prefab to spawn.</param>
-        /// <param name="position">World position.</param>
-        /// <param name="duration">Time in seconds before auto-despawn.</param>
-        /// <param name="rotation">World rotation (default identity).</param>
-        /// <returns>Handle to the spawned GameObject.</returns>
-        public static PoolHandle<GameObject> SpawnTimed(GameObject prefab, Vector3 position, float duration, Quaternion? rotation = null)
-        {
-            var handle = Spawn(prefab, position, rotation);
+            var handle = SpawnObject(prefab, position, rotation);
             
             if (handle.IsValid)
             {
-                // Use Timer system for auto-release
-                Timers.Timer.Delay(duration, () => Despawn(handle));
+                // Use the new Timer service for auto-release
+                App.Get<Timers.Timer>().CreateDelay(duration, () => DespawnObject(handle));
             }
             
             return handle;
         }
 
-        /// <summary>
-        /// Returns a GameObject to the pool.
-        /// </summary>
-        /// <param name="handle">Handle from Spawn().</param>
-        public static void Despawn(PoolHandle<GameObject> handle)
+        public void DespawnObject(PoolHandle<GameObject> handle)
         {
             if (!handle.IsValid) return;
 
@@ -240,7 +204,7 @@ namespace Eraflo.Catalyst.Pooling
             DespawnInternal(handle);
         }
 
-        private static void DespawnInternal(PoolHandle<GameObject> handle)
+        private void DespawnInternal(PoolHandle<GameObject> handle)
         {
             if (!_prefabPools.TryGetValue(handle.PoolId, out var pool))
             {
@@ -252,20 +216,14 @@ namespace Eraflo.Catalyst.Pooling
             Metrics.RecordDespawn();
         }
 
-        /// <summary>
-        /// Pre-allocates GameObjects in a prefab pool.
-        /// </summary>
-        public static void Warmup(GameObject prefab, int count)
+        public void WarmupObject(GameObject prefab, int count)
         {
             if (prefab == null) return;
             var pool = GetOrCreatePrefabPool(prefab);
             pool.Warmup(count);
         }
 
-        /// <summary>
-        /// Clears a specific prefab pool.
-        /// </summary>
-        public static void Clear(GameObject prefab)
+        public void ClearObject(GameObject prefab)
         {
             if (prefab == null) return;
             var poolId = prefab.GetInstanceID();
@@ -291,7 +249,7 @@ namespace Eraflo.Catalyst.Pooling
             }
         }
 
-        private static PrefabPool GetOrCreatePrefabPool(GameObject prefab)
+        private PrefabPool GetOrCreatePrefabPool(GameObject prefab)
         {
             var poolId = prefab.GetInstanceID();
 
@@ -318,12 +276,9 @@ namespace Eraflo.Catalyst.Pooling
 
         #endregion
 
-        #region Utility
+        #region Utility Methods
 
-        /// <summary>
-        /// Clears all pools.
-        /// </summary>
-        public static void ClearAll()
+        public void ClearAllPools()
         {
             if (IsThreadSafe)
             {
@@ -335,7 +290,7 @@ namespace Eraflo.Catalyst.Pooling
             }
         }
 
-        private static void ClearAllInternal()
+        private void ClearAllInternal()
         {
             foreach (var pool in _prefabPools.Values)
             {
@@ -347,11 +302,7 @@ namespace Eraflo.Catalyst.Pooling
             while (_pendingOperations.TryDequeue(out _)) { }
         }
 
-        /// <summary>
-        /// Processes pending operations from other threads.
-        /// Called automatically by Unity's update loop.
-        /// </summary>
-        internal static void ProcessPendingOperations()
+        public void ProcessPendingOperations()
         {
             while (_pendingOperations.TryDequeue(out var operation))
             {
@@ -359,10 +310,7 @@ namespace Eraflo.Catalyst.Pooling
             }
         }
 
-        /// <summary>
-        /// Gets info about all active pools for debugging.
-        /// </summary>
-        public static List<PoolDebugInfo> GetPoolDebugInfo()
+        public List<PoolDebugInfo> GetDebugInfo()
         {
             var result = new List<PoolDebugInfo>();
 
@@ -372,7 +320,7 @@ namespace Eraflo.Catalyst.Pooling
             return result;
         }
 
-        private static void CollectDebugInfo(List<PoolDebugInfo> result)
+        private void CollectDebugInfo(List<PoolDebugInfo> result)
         {
             foreach (var kvp in _prefabPools)
             {
@@ -388,7 +336,6 @@ namespace Eraflo.Catalyst.Pooling
 
             foreach (var kvp in _genericPools)
             {
-                var provider = kvp.Value as IPoolProvider<object>;
                 result.Add(new PoolDebugInfo
                 {
                     PoolId = kvp.Key.GetHashCode(),

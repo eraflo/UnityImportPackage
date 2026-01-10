@@ -83,11 +83,11 @@ namespace Eraflo.Catalyst.BehaviourTree
             // Cancel any existing cooldown timer
             if (_cooldownTimer != TimerHandle.None)
             {
-                Timer.Cancel(_cooldownTimer);
+                App.Get<Timer>().CancelTimer(_cooldownTimer);
             }
             
             // Start new cooldown timer
-            _cooldownTimer = Timer.Delay(Duration, () =>
+            _cooldownTimer = App.Get<Timer>().CreateDelay(Duration, () =>
             {
                 _isOnCooldown = false;
             }, UseUnscaledTime);
@@ -98,7 +98,7 @@ namespace Eraflo.Catalyst.BehaviourTree
             // Cancel cooldown timer when node is stopped
             if (_cooldownTimer != TimerHandle.None)
             {
-                Timer.Cancel(_cooldownTimer);
+                App.Get<Timer>().CancelTimer(_cooldownTimer);
                 _cooldownTimer = TimerHandle.None;
             }
         }

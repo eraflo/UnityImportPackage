@@ -5,22 +5,25 @@ A generic, thread-safe, async-safe, multiplayer-ready object pooling system.
 ## Quick Start
 
 ```csharp
-using Eraflo.UnityImportPackage.Pooling;
+using Eraflo.Catalyst.Pooling;
+
+// 1. Get the service
+var pool = App.Get<Pool>();
 
 // Generic objects
-var handle = Pool.Get<Bullet>();
-Pool.Release(handle);
+var handle = pool.GetFromPool<Bullet>();
+pool.ReleaseToPool(handle);
 
 // Prefabs (GameObjects)
-var vfx = Pool.Spawn(explosionPrefab, transform.position);
-Pool.Despawn(vfx);
+var vfx = pool.SpawnObject(explosionPrefab, transform.position);
+pool.DespawnObject(vfx);
 
 // Auto-despawn after 2 seconds
-Pool.SpawnTimed(particlePrefab, pos, 2f);
+pool.SpawnObjectTimed(particlePrefab, pos, 2f);
 
 // Pre-allocate for performance
-Pool.Warmup<Bullet>(100);
-Pool.Warmup(enemyPrefab, 20);
+pool.Warmup<Bullet>(100);
+pool.WarmupObject(enemyPrefab, 20);
 ```
 
 ---
@@ -29,8 +32,12 @@ Pool.Warmup(enemyPrefab, 20);
 
 ```mermaid
 graph TB
-    subgraph "API"
-        PF["Pool (Static Facade)"]
+    subgraph "Service Locator"
+        SL["ServiceLocator / App"]
+    end
+
+    subgraph "Pooling API"
+        PF["Pool (Service)"]
         PH["PoolHandle&lt;T&gt;"]
     end
 
@@ -45,6 +52,7 @@ graph TB
         NPS["NetworkPoolSync"]
     end
 
+    SL -- "Get<Pool>()" --> PF
     PF --> GP
     PF --> PP
     PP --> PO
@@ -59,28 +67,32 @@ graph TB
 ### Generic Pool (Any Class)
 
 ```csharp
+var pool = App.Get<Pool>();
+
 // Get from pool
-var handle = Pool.Get<MyClass>();
+var handle = pool.GetFromPool<MyClass>();
 var instance = handle.Instance;
 
 // Use the object...
 instance.DoSomething();
 
 // Return to pool
-Pool.Release(handle);
+pool.ReleaseToPool(handle);
 ```
 
 ### Prefab Pool (GameObjects)
 
 ```csharp
+var pool = App.Get<Pool>();
+
 // Spawn prefab
-var handle = Pool.Spawn(prefab, position, rotation);
+var handle = pool.SpawnObject(prefab, position, rotation);
 
 // Access the GameObject
 handle.Instance.transform.LookAt(target);
 
 // Despawn (return to pool)
-Pool.Despawn(handle);
+pool.DespawnObject(handle);
 ```
 
 ### IPoolable Callbacks
@@ -107,7 +119,7 @@ public class Bullet : MonoBehaviour, IPoolable
 
 ```csharp
 // Auto-despawn after duration
-Pool.SpawnTimed(explosionPrefab, pos, 2f);
+App.Get<Pool>().SpawnObjectTimed(explosionPrefab, pos, 2f);
 
 // PooledObject component also supports this:
 pooledObject.DespawnAfter(3f);
@@ -117,10 +129,11 @@ pooledObject.DespawnAfter(3f);
 
 ```csharp
 // Generic pool warmup
-Pool.Warmup<Bullet>(100);
+var pool = App.Get<Pool>();
+pool.Warmup<Bullet>(100);
 
 // Prefab pool warmup
-Pool.Warmup(enemyPrefab, 20);
+pool.WarmupObject(enemyPrefab, 20);
 ```
 
 ---
@@ -133,8 +146,9 @@ The pool system is thread-safe when `PackageRuntime.IsThreadSafe` is enabled.
 // Operations from any thread are safe
 await Task.Run(() =>
 {
-    var handle = Pool.Get<MyClass>();
-    Pool.Release(handle);
+    var pool = App.Get<Pool>();
+    var handle = pool.GetFromPool<MyClass>();
+    pool.ReleaseToPool(handle);
 });
 ```
 
@@ -175,7 +189,8 @@ handle.DespawnNetworked(NetworkTarget.All);
 
 ```csharp
 // SERVER: Register existing object for networking
-var handle = Pool.Spawn(prefab, pos);
+var pool = App.Get<Pool>();
+var handle = pool.SpawnObject(prefab, pos);
 handle.RegisterNetworked();
 
 // SERVER: Unregister when done
@@ -186,7 +201,7 @@ handle.UnregisterNetworked();
 
 ```csharp
 // CLIENT: React to spawn/despawn messages
-var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+var handler = App.Get<NetworkManager>().Handlers.Get<PoolNetworkHandler>();
 handler.OnSpawnReceived += msg => { /* spawn locally */ };
 handler.OnDespawnReceived += id => { /* despawn locally */ };
 ```
@@ -198,7 +213,7 @@ See [Networking.md](Networking.md) for details.
 ## Metrics
 
 ```csharp
-var metrics = Pool.Metrics;
+var metrics = App.Get<Pool>().Metrics;
 
 metrics.TotalSpawned;     // Total objects spawned
 metrics.TotalDespawned;   // Total objects despawned
@@ -236,15 +251,15 @@ Shows:
 
 | Method | Description |
 |--------|-------------|
-| `Get<T>()` | Get object from generic pool |
-| `Release<T>(handle)` | Return object to generic pool |
-| `Spawn(prefab, pos, rot)` | Spawn prefab from pool |
-| `SpawnTimed(prefab, pos, duration)` | Spawn with auto-despawn |
-| `Despawn(handle)` | Return prefab to pool |
+| `GetFromPool<T>()` | Get object from generic pool |
+| `ReleaseToPool<T>(handle)` | Return object to generic pool |
+| `SpawnObject(prefab, pos, rot)` | Spawn prefab from pool |
+| `SpawnObjectTimed(prefab, pos, duration)` | Spawn with auto-despawn |
+| `DespawnObject(handle)` | Return prefab to pool |
 | `Warmup<T>(count)` | Pre-allocate generic objects |
-| `Warmup(prefab, count)` | Pre-allocate prefabs |
-| `Clear<T>()` | Clear specific generic pool |
-| `Clear(prefab)` | Clear specific prefab pool |
+| `WarmupObject(prefab, count)` | Pre-allocate prefabs |
+| `ClearFromPool<T>()` | Clear specific generic pool |
+| `ClearObject(prefab)` | Clear specific prefab pool |
 | `ClearAll()` | Clear all pools |
 
 ### PoolHandle<T>

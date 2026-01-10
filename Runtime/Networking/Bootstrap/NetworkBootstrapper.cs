@@ -16,10 +16,13 @@ namespace Eraflo.Catalyst.Networking
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void RegisterBuiltInFactories()
         {
-            NetworkManager.Backends.Register(new MockBackendFactory());
+            var network = App.Get<NetworkManager>();
+            if (network == null) return;
+
+            network.Backends.Register(new MockBackendFactory());
             
             #if UNITY_NETCODE
-            NetworkManager.Backends.Register(new NetcodeBackendFactory());
+            network.Backends.Register(new NetcodeBackendFactory());
             #endif
         }
 
@@ -43,13 +46,16 @@ namespace Eraflo.Catalyst.Networking
 
         public static bool InitializeBackend(string backendId)
         {
+            var network = App.Get<NetworkManager>();
+            if (network == null) return false;
+
             if (string.IsNullOrEmpty(backendId))
             {
-                NetworkManager.ClearBackend();
+                network.SetBackend(null);
                 return true;
             }
 
-            var factory = NetworkManager.Backends.Get(backendId);
+            var factory = network.Backends.Get(backendId);
             if (factory == null)
             {
                 Debug.LogWarning($"[NetworkBootstrapper] Unknown backend: {backendId}");
@@ -106,7 +112,8 @@ namespace Eraflo.Catalyst.Networking
             try
             {
                 var handler = (INetworkMessageHandler)Activator.CreateInstance(type);
-                NetworkManager.Handlers.Register(handler);
+                var network = App.Get<NetworkManager>();
+                network?.Handlers.Register(handler);
                 
                 if (PackageSettings.Instance.NetworkDebugMode)
                     Debug.Log($"[NetworkBootstrapper] Registered: {type.Name}");

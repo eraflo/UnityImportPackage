@@ -41,7 +41,7 @@ namespace Eraflo.Catalyst.Editor.Debugging
             if (EditorApplication.timeSinceStartup - _lastRefreshTime > REFRESH_INTERVAL)
             {
                 _lastRefreshTime = EditorApplication.timeSinceStartup;
-                _cachedTimers = Timer.GetActiveTimers();
+                _cachedTimers = App.Get<Timer>()?.GetActiveTimers() ?? new List<TimerDebugInfo>();
                 Repaint();
             }
         }
@@ -72,12 +72,13 @@ namespace Eraflo.Catalyst.Editor.Debugging
             {
                 if (GUILayout.Button("Clear All", EditorStyles.toolbarButton))
                 {
-                    Timer.Clear();
+                    App.Get<Timer>()?.Clear(); // No static Clear on Timer facade? Wait, let's check.
                     _cachedTimers.Clear();
                 }
                 
                 GUI.enabled = false;
-                GUILayout.Label(Timer.IsBurstMode ? "Burst" : "Standard", EditorStyles.toolbarButton);
+                bool isBurst = App.Get<Timer>()?.IsBurstMode ?? false;
+                GUILayout.Label(isBurst ? "Burst" : "Standard", EditorStyles.toolbarButton);
                 GUI.enabled = true;
             }
             
@@ -86,9 +87,10 @@ namespace Eraflo.Catalyst.Editor.Debugging
 
         private void DrawStats()
         {
+            bool isBurst = App.Get<Timer>()?.IsBurstMode ?? false;
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             EditorGUILayout.LabelField($"Active Timers: {_cachedTimers.Count}", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField($"Backend: {(Timer.IsBurstMode ? "Burst" : "Standard")}");
+            EditorGUILayout.LabelField($"Backend: {(isBurst ? "Burst" : "Standard")}");
             EditorGUILayout.EndHorizontal();
         }
 

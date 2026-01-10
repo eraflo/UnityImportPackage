@@ -19,7 +19,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         protected override void OnStart()
         {
             _timedOut = false;
-            _timerHandle = Timer.Delay(Duration, () => _timedOut = true);
+            _timerHandle = App.Get<Timer>().CreateDelay(Duration, () => _timedOut = true);
         }
         
         protected override NodeState OnUpdate()
@@ -35,10 +35,9 @@ namespace Eraflo.Catalyst.BehaviourTree
             
             var state = Child.Evaluate();
             
-            // If child completed before timeout, cancel timer
             if (state != NodeState.Running && _timerHandle != TimerHandle.None)
             {
-                Timer.Cancel(_timerHandle);
+                App.Get<Timer>()?.CancelTimer(_timerHandle);
                 _timerHandle = TimerHandle.None;
             }
             
@@ -49,7 +48,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         {
             if (_timerHandle != TimerHandle.None)
             {
-                Timer.Cancel(_timerHandle);
+                App.Get<Timer>()?.CancelTimer(_timerHandle);
                 _timerHandle = TimerHandle.None;
             }
         }

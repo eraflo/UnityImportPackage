@@ -12,6 +12,34 @@ A flexible, ScriptableObject-based Behaviour Tree system for AI agents with visu
 
 ---
 
+## Execution Flow
+
+The tree is evaluated top-to-bottom, left-to-right. Each node returns a `NodeState` (Success, Failure, or Running) to its parent.
+
+```mermaid
+sequenceDiagram
+    participant R as Runner
+    participant S as Sequence
+    participant C1 as Condition 1
+    participant A1 as Action 1
+
+    R->>S: Evaluate()
+    S->>C1: Evaluate()
+    C1-->>S: Success
+    S->>A1: Evaluate()
+    A1-->>S: Running
+    S-->>R: Running
+    
+    Note over R,A1: Next Tick...
+    
+    R->>S: Evaluate()
+    S->>A1: Evaluate()
+    A1-->>S: Success
+    S-->>R: Success
+```
+
+---
+
 ## Visual Editor
 
 Open via: `Tools > Eraflo Catalyst > Behaviour Tree Editor`
@@ -27,6 +55,37 @@ Open via: `Tools > Eraflo Catalyst > Behaviour Tree Editor`
 ---
 
 ## Node Types
+
+```mermaid
+graph TD
+    Node["Node (Base)"]
+    Root["Root Node"]
+    Composite["Composite Node"]
+    Decorator["Decorator Node"]
+    Action["Action Node"]
+    Condition["Condition Node"]
+
+    Node --> Root
+    Node --> Composite
+    Node --> Decorator
+    Node --> Action
+    Node --> Condition
+
+    Composite --> Selector["Selector (OR)"]
+    Composite --> Sequence["Sequence (AND)"]
+    Composite --> Parallel["Parallel"]
+
+    Decorator --> Inverter["Inverter"]
+    Decorator --> Repeater["Repeater"]
+    Decorator --> Cooldown["Cooldown"]
+
+    Action --> Wait["Wait"]
+    Action --> MoveTo["MoveTo"]
+    Action --> RaiseEvent["RaiseEvent"]
+
+    Condition --> BlackboardCondition["BlackboardCondition"]
+    Condition --> IsInRange["IsInRange"]
+```
 
 ### Composites (Blue)
 | Node | Description |
@@ -164,7 +223,31 @@ Blackboard.RegisterListener("health", (oldVal, newVal) => {
 
 ---
 
-## Data Flow
+## Data Flow / Blackboard
+
+```mermaid
+graph LR
+    subgraph "Blackboard (Shared Data)"
+        B[(Data Storage)]
+    end
+
+    subgraph "Logic Nodes"
+        N1[Action A]
+        N2[Condition B]
+    end
+
+    subgraph "Data Ports"
+        P1((Output Port))
+        P2((Input Port))
+    end
+
+    N1 --> P1
+    P1 -.-> P2
+    P2 --> N2
+    
+    N1 <--> B
+    N2 <--> B
+```
 
 Directly connect nodes to pass data values (e.g., Calculate Position → MoveTo).
 
@@ -284,12 +367,44 @@ Runtime/BehaviourTree/
 
 ## Integration
 
+```mermaid
+graph TB
+    subgraph "Service Locator"
+        SL[App]
+    end
+
+    subgraph "Core Services"
+        T[Timer]
+        EB[EventBus]
+        NM[NetworkManager]
+    end
+
+    subgraph "Behaviour Tree System"
+        Runner[BehaviourTreeRunner]
+        Tree[BehaviourTree Asset]
+        BB[Blackboard Instance]
+    end
+
+    SL -- "Get<T>" --> T
+    SL -- "Get<T>" --> EB
+    SL -- "Get<T>" --> NM
+
+    Runner --> Tree
+    Runner --> BB
+    
+    Tree -- "Evaluate" --> Nodes[Nodes]
+    Nodes -- "Uses" --> T
+    Nodes -- "Uses" --> EB
+    Nodes -- "Uses" --> NM
+```
+
 | System | Usage |
 |--------|-------|
-| **Timer** | `Wait`, `Cooldown` use Timer.Delay |
-| **EventBus** | `RaiseEvent`, `WaitForEvent` nodes |
-| **AI Navigation** | `MoveTo` uses NavMeshAgent |
-| **Networking** | `NetworkBehaviourTreeSync` for multiplayer |
+| **Service Locator** | Core modules are accessed via `App.Get<T>()`. |
+| **Timer** | `Wait`, `Cooldown` use `App.Get<Timer>()` internally. |
+| **EventBus** | `RaiseEvent`, `WaitForEvent` nodes use `App.Get<EventBus>()`. |
+| **AI Navigation** | `MoveTo` uses `NavMeshAgent`. |
+| **Networking** | `NetworkBehaviourTreeSync` for multiplayer, uses `App.Get<NetworkManager>()`. |
 
 ---
 

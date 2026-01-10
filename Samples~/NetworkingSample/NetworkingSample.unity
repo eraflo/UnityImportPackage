@@ -364,12 +364,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 300000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ff92d7589bb743c4da803669b8f71e06, type: 3}
+  m_Script: {fileID: 11500000, guid: 5374fd6f0b7e9f9459902f91fef92a74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Eraflo.UnityImportPackage.Samples.Networking.NetworkingSample
   _useMockBackend: 1
   _spawnPrefab: {fileID: 645899704}
-  _eventChannel: {fileID: 11400000, guid: 081e00acadc21544ab2e5951f3c4406c, type: 2}
+  _eventChannel: {fileID: 11400000, guid: 3a1528e069f4a0e4a8414444ed36a294, type: 2}
 --- !u!1 &645899704
 GameObject:
   m_ObjectHideFlags: 0

@@ -29,7 +29,7 @@ namespace Eraflo.Catalyst.BehaviourTree
             float d = GetData("Duration", Duration);
             
             // Create a delay timer using the Timer system
-            _timerHandle = Timer.Delay(d, () =>
+            _timerHandle = App.Get<Timer>().CreateDelay(d, () =>
             {
                 _completed = true;
             }, UseUnscaledTime);
@@ -50,7 +50,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         protected override void OnStop()
         {
             // Cancel timer if node is stopped
-            Timer.Cancel(_timerHandle);
+            App.Get<Timer>().CancelTimer(_timerHandle);
             _timerHandle = TimerHandle.None;
             _completed = false;
         }

@@ -22,14 +22,16 @@ namespace Eraflo.Catalyst.Timers
 
         public void OnRegistered()
         {
-            Networking.NetworkManager.On<Networking.TimerSyncMessage>(HandleSync);
-            Networking.NetworkManager.On<Networking.TimerCancelMessage>(HandleCancel);
+            var network = App.Get<Networking.NetworkManager>();
+            network.On<Networking.TimerSyncMessage>(HandleSync);
+            network.On<Networking.TimerCancelMessage>(HandleCancel);
         }
 
         public void OnUnregistered()
         {
-            Networking.NetworkManager.Off<Networking.TimerSyncMessage>(HandleSync);
-            Networking.NetworkManager.Off<Networking.TimerCancelMessage>(HandleCancel);
+            var network = App.Get<Networking.NetworkManager>();
+            network.Off<Networking.TimerSyncMessage>(HandleSync);
+            network.Off<Networking.TimerCancelMessage>(HandleCancel);
             Clear();
         }
 
@@ -48,8 +50,9 @@ namespace Eraflo.Catalyst.Timers
             _timers[handle] = new NetworkTimerData { Id = id, ServerAuth = serverAuthoritative };
             _idToHandle[id] = handle;
 
-            Timer.On<OnComplete>(handle, () => HandleComplete(handle, id));
-            Timer.On<OnTick, float>(handle, dt => OnTick?.Invoke(id, dt));
+            var timer = App.Get<Timer>();
+            timer.On<OnComplete>(handle, () => HandleComplete(handle, id));
+            timer.On<OnTick, float>(handle, dt => OnTick?.Invoke(id, dt));
 
             return id;
         }
@@ -83,8 +86,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void BroadcastSync()
         {
-            if (!Networking.NetworkManager.IsConnected || !Networking.NetworkManager.IsServer) return;
+            var network = App.Get<Networking.NetworkManager>();
+            if (network == null || !network.IsConnected || !network.IsServer) return;
 
+            var timer = App.Get<Timer>();
             foreach (var kvp in _timers)
             {
                 if (!kvp.Value.ServerAuth) continue;
@@ -92,12 +97,12 @@ namespace Eraflo.Catalyst.Timers
                 var msg = new Networking.TimerSyncMessage
                 {
                     NetworkId = kvp.Value.Id,
-                    RemainingTime = Timer.GetCurrentTime(kvp.Key),
-                    Progress = Timer.GetProgress(kvp.Key),
-                    IsRunning = Timer.IsRunning(kvp.Key),
-                    IsFinished = Timer.IsFinished(kvp.Key)
+                    RemainingTime = timer.GetCurrentTime(kvp.Key),
+                    Progress = timer.GetProgress(kvp.Key),
+                    IsRunning = timer.IsRunning(kvp.Key),
+                    IsFinished = timer.IsFinished(kvp.Key)
                 };
-                Networking.NetworkManager.SendToClients(msg);
+                network.SendToClients(msg);
             }
         }
 
@@ -112,24 +117,25 @@ namespace Eraflo.Catalyst.Timers
             if (!_idToHandle.TryGetValue(msg.NetworkId, out var handle)) return;
             if (!_timers.TryGetValue(handle, out var data) || !data.ServerAuth) return;
 
+            var timer = App.Get<Timer>();
             if (msg.IsFinished)
             {
-                Timer.Cancel(handle);
+                timer.CancelTimer(handle);
             }
-            else if (msg.IsRunning && !Timer.IsRunning(handle))
+            else if (msg.IsRunning && !timer.IsRunning(handle))
             {
-                Timer.Resume(handle);
+                timer.Resume(handle);
             }
-            else if (!msg.IsRunning && Timer.IsRunning(handle))
+            else if (!msg.IsRunning && timer.IsRunning(handle))
             {
-                Timer.Pause(handle);
+                timer.Pause(handle);
             }
         }
 
         private void HandleCancel(Networking.TimerCancelMessage msg)
         {
             var handle = GetHandle(msg.NetworkId);
-            if (handle.IsValid) Timer.Cancel(handle);
+            if (handle.IsValid) App.Get<Timer>().CancelTimer(handle);
         }
 
         /// <summary>

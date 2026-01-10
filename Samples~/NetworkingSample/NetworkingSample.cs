@@ -21,42 +21,44 @@ namespace Eraflo.Catalyst.Samples.Networking
 
         private void Start()
         {
+            var nm = App.Get<NetworkManager>();
+
             // Setup mock backend if needed (normally from PackageSettings)
-            if (_useMockBackend && !NetworkManager.HasBackend)
+            if (_useMockBackend && !nm.HasBackend)
             {
                 var mock = new MockNetworkBackend(isServer: true, isClient: true, isConnected: true);
                 mock.EnableLoopback = true;
-                NetworkManager.SetBackend(mock);
+                nm.SetBackend(mock);
             }
 
             // Subscribe to custom messages
-            NetworkManager.On<ChatMessage>(OnChat);
-
-            // Event channel auto-registers on OnEnable
-            // Timer/Pool use extension methods
+            nm.On<ChatMessage>(OnChat);
 
             Debug.Log("[NetworkingSample] Ready");
         }
 
         private void OnDestroy()
         {
-            NetworkManager.Off<ChatMessage>(OnChat);
+            App.Get<NetworkManager>().Off<ChatMessage>(OnChat);
         }
 
         private void OnGUI()
         {
+            var nm = App.Get<NetworkManager>();
+            var timer = App.Get<Timer>();
+
             GUILayout.BeginArea(new Rect(10, 10, 250, 350));
             
-            GUILayout.Label($"Connected: {NetworkManager.IsConnected}");
-            GUILayout.Label($"Server: {NetworkManager.IsServer} | Client: {NetworkManager.IsClient}");
+            GUILayout.Label($"Connected: {nm.IsConnected}");
+            GUILayout.Label($"Server: {nm.IsServer} | Client: {nm.IsClient}");
             
             GUILayout.Space(10);
             
             if (GUILayout.Button("Create Networked Timer (5s)"))
             {
-                var handle = Timer.Create<CountdownTimer>(5f);
+                var handle = timer.CreateTimer<CountdownTimer>(5f);
                 var networkId = handle.MakeNetworked(); // Extension method
-                Timer.Start(handle);
+                timer.Start(handle);
                 Debug.Log($"Created networked timer: {networkId}");
             }
             
@@ -74,7 +76,7 @@ namespace Eraflo.Catalyst.Samples.Networking
             
             if (GUILayout.Button("Send Chat"))
             {
-                NetworkManager.Send(new ChatMessage { Sender = "Player", Text = $"Hi at {Time.time:F1}s" });
+                nm.Send(new ChatMessage { Sender = "Player", Text = $"Hi at {Time.time:F1}s" });
             }
             
             if (GUILayout.Button("Sync Timers"))
@@ -85,11 +87,11 @@ namespace Eraflo.Catalyst.Samples.Networking
             GUILayout.Space(10);
             
             // Debug info
-            var timerHandler = NetworkManager.Handlers.Get<TimerNetworkHandler>();
-            var eventHandler = NetworkManager.Handlers.Get<EventNetworkHandler>();
+            var timerHandler = nm.Handlers.Get<TimerNetworkHandler>();
+            var eventHandler = nm.Handlers.Get<EventNetworkHandler>();
             GUILayout.Label($"TimerHandler: {(timerHandler != null ? "OK" : "NULL")}");
             GUILayout.Label($"EventHandler: {(eventHandler != null ? "OK" : "NULL")}");
-            GUILayout.Label($"Timers: {Timer.Count}");
+            GUILayout.Label($"Timers: {timer.Count}");
             
             GUILayout.EndArea();
         }

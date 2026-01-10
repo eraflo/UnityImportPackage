@@ -88,7 +88,7 @@ namespace Eraflo.Catalyst.Timers
             _isPaused = true;
             if (_currentHandle.IsValid)
             {
-                Timer.Pause(_currentHandle);
+                App.Get<Timer>().Pause(_currentHandle);
             }
         }
 
@@ -101,7 +101,7 @@ namespace Eraflo.Catalyst.Timers
             _isPaused = false;
             if (_currentHandle.IsValid)
             {
-                Timer.Resume(_currentHandle);
+                App.Get<Timer>().Resume(_currentHandle);
             }
         }
 
@@ -112,7 +112,7 @@ namespace Eraflo.Catalyst.Timers
         {
             if (_currentHandle.IsValid)
             {
-                Timer.Cancel(_currentHandle);
+                App.Get<Timer>().CancelTimer(_currentHandle);
             }
             _isRunning = false;
             _isPaused = false;
@@ -132,7 +132,7 @@ namespace Eraflo.Catalyst.Timers
             switch (step.Type)
             {
                 case StepType.Delay:
-                    _currentHandle = Timer.Delay(step.Duration, ExecuteNextStep);
+                    _currentHandle = App.Get<Timer>().CreateDelay(step.Duration, ExecuteNextStep);
                     break;
                 case StepType.Action:
                     try { step.Callback?.Invoke(); }
@@ -153,11 +153,11 @@ namespace Eraflo.Catalyst.Timers
     }
 
     // Extension for Timer class
-    public static partial class Timer
+    public partial class Timer
     {
         /// <summary>
         /// Creates a new timer chain.
         /// </summary>
-        public static TimerChain Chain() => TimerChain.Create();
+        public TimerChain Chain() => TimerChain.Create();
     }
 }

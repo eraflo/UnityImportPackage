@@ -1,76 +1,91 @@
 using System;
 using UnityEngine;
+using Eraflo.Catalyst;
 
 namespace Eraflo.Catalyst.Networking
 {
     /// <summary>
     /// Central network manager facade.
     /// </summary>
-    public static class NetworkManager
+    /// <summary>
+    /// Central network manager API.
+    /// Can be used as a static facade or as a service via Service Locator.
+    /// </summary>
+    [Service(Priority = 20)]
+    public class NetworkManager : IGameService
     {
-        private static INetworkBackend _backend;
-        private static readonly NetworkBackendRegistry _backends = new NetworkBackendRegistry();
-        private static readonly NetworkMessageRouter _router = new NetworkMessageRouter();
-        private static readonly NetworkHandlerRegistry _handlers = new NetworkHandlerRegistry();
+        private INetworkBackend _backend;
+        private readonly NetworkBackendRegistry _backends = new NetworkBackendRegistry();
+        private readonly NetworkMessageRouter _router = new NetworkMessageRouter();
+        private readonly NetworkHandlerRegistry _handlers = new NetworkHandlerRegistry();
 
-        #region Registries
+        public INetworkBackend Backend => _backend;
+        public NetworkBackendRegistry Backends => _backends;
+        public NetworkMessageRouter Router => _router;
+        public NetworkHandlerRegistry Handlers => _handlers;
 
-        /// <summary>Backend factory registry.</summary>
-        public static NetworkBackendRegistry Backends => _backends;
+        public bool HasBackend => _backend != null;
+        public bool IsServer => _backend?.IsServer ?? true;
+        public bool IsClient => _backend?.IsClient ?? false;
+        public bool IsConnected => _backend?.IsConnected ?? false;
+        public bool IsHost => IsServer && IsClient;
+        public ulong LocalClientId => _backend?.LocalClientId ?? 0;
 
-        /// <summary>Message router.</summary>
-        public static NetworkMessageRouter Router => _router;
+        public event Action<INetworkBackend> OnBackendChanged
+        {
+            add => _onBackendChanged += value;
+            remove => _onBackendChanged -= value;
+        }
 
-        /// <summary>System handler registry.</summary>
-        public static NetworkHandlerRegistry Handlers => _handlers;
+        public event Action OnConnected
+        {
+            add => _onConnected += value;
+            remove => _onConnected -= value;
+        }
+
+        public event Action OnDisconnected
+        {
+            add => _onDisconnected += value;
+            remove => _onDisconnected -= value;
+        }
+
+        #region IGameService
+
+        void IGameService.Initialize()
+        {
+            // Initialization logic if needed
+        }
+
+        void IGameService.Shutdown()
+        {
+            Reset();
+        }
 
         #endregion
 
-        #region State
 
-        /// <summary>Current backend.</summary>
-        public static INetworkBackend Backend => _backend;
+        #region Instance Events
 
-        /// <summary>Whether a backend is set.</summary>
-        public static bool HasBackend => _backend != null;
-
-        /// <summary>Is server.</summary>
-        public static bool IsServer => _backend?.IsServer ?? true;
-
-        /// <summary>Is client.</summary>
-        public static bool IsClient => _backend?.IsClient ?? false;
-
-        /// <summary>Is connected.</summary>
-        public static bool IsConnected => _backend?.IsConnected ?? false;
-
-        /// <summary>Is host (server + client).</summary>
-        public static bool IsHost => IsServer && IsClient;
+        private event Action<INetworkBackend> _onBackendChanged;
+        private event Action _onConnected;
+        private event Action _onDisconnected;
 
         #endregion
 
-        #region Events
+        #region Instance Methods
 
-        public static event Action<INetworkBackend> OnBackendChanged;
-        public static event Action OnConnected;
-        public static event Action OnDisconnected;
-
-        #endregion
-
-        #region Backend
-
-        public static bool SetBackendById(string id)
+        public void SetBackendById(string id)
         {
             var backend = _backends.Create(id);
             if (backend == null)
             {
                 Debug.LogWarning($"[NetworkManager] Backend not found: {id}");
-                return false;
+                return;
             }
             SetBackend(backend);
-            return true;
         }
 
-        public static void SetBackend(INetworkBackend backend)
+        public void SetBackend(INetworkBackend backend)
         {
             bool wasConnected = _backend?.IsConnected ?? false;
 
@@ -86,7 +101,7 @@ namespace Eraflo.Catalyst.Networking
             {
                 _backend.Initialize();
                 
-                // Wire router to backend - check for null since backend might change
+                // Wire router to backend
                 _router.OnTypeRegistered += msgId =>
                 {
                     if (_backend != null)
@@ -101,7 +116,7 @@ namespace Eraflo.Catalyst.Networking
                 if (_backend.IsConnected) _handlers.NotifyConnected();
             }
 
-            OnBackendChanged?.Invoke(_backend);
+            _onBackendChanged?.Invoke(_backend);
 
             if (PackageSettings.Instance.NetworkDebugMode)
             {
@@ -109,13 +124,7 @@ namespace Eraflo.Catalyst.Networking
             }
         }
 
-        public static void ClearBackend() => SetBackend(null);
-
-        #endregion
-
-        #region Messaging
-
-        public static void Send<T>(T message, NetworkTarget target = NetworkTarget.All) where T : struct, INetworkMessage
+        public void Send<T>(T message, NetworkTarget target = NetworkTarget.All) where T : struct, INetworkMessage
         {
             if (_backend == null || !_backend.IsConnected) return;
 
@@ -129,22 +138,7 @@ namespace Eraflo.Catalyst.Networking
             }
         }
 
-        public static void SendToServer<T>(T message) where T : struct, INetworkMessage
-            => Send(message, NetworkTarget.Server);
-
-        public static void SendToClients<T>(T message) where T : struct, INetworkMessage
-            => Send(message, NetworkTarget.Clients);
-
-        public static void On<T>(Action<T> handler) where T : struct, INetworkMessage
-            => _router.On(handler);
-
-        public static void Off<T>(Action<T> handler) where T : struct, INetworkMessage
-            => _router.Off(handler);
-
-        /// <summary>
-        /// Sends a message to a specific client by ID. Server only.
-        /// </summary>
-        public static void SendToClient<T>(T message, ulong clientId) where T : struct, INetworkMessage
+        public void SendToClient<T>(T message, ulong clientId) where T : struct, INetworkMessage
         {
             if (_backend == null || !_backend.IsConnected || !_backend.IsServer) return;
 
@@ -158,10 +152,7 @@ namespace Eraflo.Catalyst.Networking
             }
         }
 
-        /// <summary>
-        /// Sends a message to multiple specific clients by ID. Server only.
-        /// </summary>
-        public static void SendToClients<T>(T message, params ulong[] clientIds) where T : struct, INetworkMessage
+        public void SendToClients<T>(T message, params ulong[] clientIds) where T : struct, INetworkMessage
         {
             if (_backend == null || !_backend.IsConnected || !_backend.IsServer) return;
 
@@ -175,32 +166,35 @@ namespace Eraflo.Catalyst.Networking
             }
         }
 
-        /// <summary>
-        /// Gets the local client ID.
-        /// </summary>
-        public static ulong LocalClientId => _backend?.LocalClientId ?? 0;
+        public void SendToServer<T>(T message) where T : struct, INetworkMessage
+            => Send(message, NetworkTarget.Server);
 
-        #endregion
+        public void SendToClients<T>(T message) where T : struct, INetworkMessage
+            => Send(message, NetworkTarget.Clients);
 
-        #region Lifecycle
+        public void On<T>(Action<T> handler) where T : struct, INetworkMessage
+            => _router.On(handler);
 
-        public static void NotifyConnected()
+        public void Off<T>(Action<T> handler) where T : struct, INetworkMessage
+            => _router.Off(handler);
+
+        public void NotifyConnected()
         {
             _handlers.NotifyConnected();
-            OnConnected?.Invoke();
+            _onConnected?.Invoke();
         }
 
-        public static void NotifyDisconnected()
+        public void NotifyDisconnected()
         {
             _handlers.NotifyDisconnected();
-            OnDisconnected?.Invoke();
+            _onDisconnected?.Invoke();
         }
 
-        public static void Reset()
+        public void Reset()
         {
             _handlers.Clear();
             _router.Clear();
-            ClearBackend();
+            SetBackend(null);
             _backends.Clear();
         }
 

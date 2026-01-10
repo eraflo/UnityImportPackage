@@ -54,7 +54,7 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public TimerHandle Create<T>(float duration) where T : struct, ITimer
         {
-            var handle = Timer.Create<T>(duration);
+            var handle = App.Get<Timer>().CreateTimer<T>(duration);
             Add(handle);
             return handle;
         }
@@ -64,7 +64,7 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public TimerHandle Delay(float delay, System.Action onComplete)
         {
-            var handle = Timer.Delay(delay, onComplete);
+            var handle = App.Get<Timer>().CreateDelay(delay, onComplete);
             Add(handle);
             return handle;
         }
@@ -74,9 +74,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void PauseAll()
         {
+            var timer = App.Get<Timer>();
             foreach (var handle in _handles)
             {
-                Timer.Pause(handle);
+                timer.Pause(handle);
             }
         }
 
@@ -85,9 +86,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void ResumeAll()
         {
+            var timer = App.Get<Timer>();
             foreach (var handle in _handles)
             {
-                Timer.Resume(handle);
+                timer.Resume(handle);
             }
         }
 
@@ -96,9 +98,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void CancelAll()
         {
+            var timer = App.Get<Timer>();
             foreach (var handle in _handles)
             {
-                Timer.Cancel(handle);
+                timer.CancelTimer(handle);
             }
             _handles.Clear();
         }
@@ -108,9 +111,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void ResetAll()
         {
+            var timer = App.Get<Timer>();
             foreach (var handle in _handles)
             {
-                Timer.Reset(handle);
+                timer.ResetTimer(handle);
             }
         }
 
@@ -119,9 +123,10 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void SetTimeScaleAll(float scale)
         {
+            var timer = App.Get<Timer>();
             foreach (var handle in _handles)
             {
-                Timer.SetTimeScale(handle, scale);
+                timer.SetTimeScale(handle, scale);
             }
         }
 
@@ -130,17 +135,18 @@ namespace Eraflo.Catalyst.Timers
         /// </summary>
         public void CleanupFinished()
         {
-            _handles.RemoveAll(h => Timer.IsFinished(h));
+            var timer = App.Get<Timer>();
+            _handles.RemoveAll(h => timer.IsFinished(h));
         }
     }
 
     // Extension for Timer class
-    public static partial class Timer
+    public partial class Timer
     {
         /// <summary>
         /// Creates a new timer group.
         /// </summary>
         /// <param name="name">Optional name for debugging.</param>
-        public static TimerGroup CreateGroup(string name = null) => new TimerGroup(name);
+        public TimerGroup CreateGroup(string name = null) => new TimerGroup(name);
     }
 }

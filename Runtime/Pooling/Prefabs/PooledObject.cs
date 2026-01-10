@@ -65,7 +65,7 @@ namespace Eraflo.Catalyst.Pooling
             if (_isActive && _poolId != 0)
             {
                 var handle = new PoolHandle<GameObject>(_handleId, gameObject, _poolId, _spawnTime);
-                Pool.Despawn(handle);
+                App.Get<Pool>().DespawnObject(handle);
             }
         }
 
@@ -77,11 +77,11 @@ namespace Eraflo.Catalyst.Pooling
             if (_isActive)
             {
                 var handle = new PoolHandle<GameObject>(_handleId, gameObject, _poolId, _spawnTime);
-                Timers.Timer.Delay(delay, () =>
+                App.Get<Timers.Timer>().CreateDelay(delay, () =>
                 {
                     if (_isActive) // Check if still active when delay completes
                     {
-                        Pool.Despawn(handle);
+                        App.Get<Pool>().DespawnObject(handle);
                     }
                 });
             }

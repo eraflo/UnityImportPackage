@@ -43,7 +43,7 @@ namespace Eraflo.Catalyst.Timers.Debugging
             if (_showOverlay && Time.realtimeSinceStartup - _lastRefresh > REFRESH_INTERVAL)
             {
                 _lastRefresh = Time.realtimeSinceStartup;
-                _cachedTimers = Timer.GetActiveTimers();
+                _cachedTimers = App.Get<Timer>().GetActiveTimers();
             }
         }
 
@@ -58,11 +58,12 @@ namespace Eraflo.Catalyst.Timers.Debugging
             GUILayout.BeginArea(new Rect(_position.x + 10, _position.y + 10, _size.x - 20, _size.y - 20));
             
             // Header
+            var timer = App.Get<Timer>();
             GUILayout.Label("Timer Debugger (F5)", _headerStyle);
-            GUILayout.Label($"Active: {_cachedTimers.Count} | {(Timer.IsBurstMode ? "Burst" : "Standard")}", _labelStyle);
+            GUILayout.Label($"Active: {_cachedTimers.Count} | {(timer.IsBurstMode ? "Burst" : "Standard")}", _labelStyle);
             
             // Metrics
-            var m = Timer.Metrics;
+            var m = timer.Metrics;
             GUILayout.Label($"Created: {m.TotalCreated} | Completed: {m.TotalCompleted} | Cancelled: {m.TotalCancelled}", _labelStyle);
             GUILayout.Label($"Update: {m.LastUpdateMs:F2}ms | Peak: {m.PeakActiveCount}", _labelStyle);
             GUILayout.Space(5);
@@ -71,12 +72,12 @@ namespace Eraflo.Catalyst.Timers.Debugging
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Clear All", GUILayout.Width(80)))
             {
-                Timer.Clear();
+                App.Get<Timer>().Clear();
                 _cachedTimers.Clear();
             }
             if (GUILayout.Button("Refresh", GUILayout.Width(60)))
             {
-                _cachedTimers = Timer.GetActiveTimers();
+                _cachedTimers = App.Get<Timer>().GetActiveTimers();
             }
             GUILayout.EndHorizontal();
 

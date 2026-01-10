@@ -33,7 +33,7 @@ namespace Eraflo.Catalyst.BehaviourTree
             
             if (Timeout > 0)
             {
-                _timeoutHandle = Timer.Delay(Timeout, () => _timedOut = true);
+                _timeoutHandle = App.Get<Timer>().CreateDelay(Timeout, () => _timedOut = true);
             }
         }
         
@@ -63,7 +63,7 @@ namespace Eraflo.Catalyst.BehaviourTree
             
             if (_timeoutHandle != TimerHandle.None)
             {
-                Timer.Cancel(_timeoutHandle);
+                App.Get<Timer>().CancelTimer(_timeoutHandle);
                 _timeoutHandle = TimerHandle.None;
             }
         }

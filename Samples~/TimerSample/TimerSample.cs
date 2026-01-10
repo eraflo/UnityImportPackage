@@ -31,60 +31,68 @@ namespace Eraflo.Catalyst.Samples.Timers
         private void OnDestroy()
         {
             // Clean up timers
-            if (_countdownHandle.IsValid) Timer.Cancel(_countdownHandle);
-            if (_stopwatchHandle.IsValid) Timer.Cancel(_stopwatchHandle);
-            if (_repeatingHandle.IsValid) Timer.Cancel(_repeatingHandle);
+            var timer = App.Get<Timer>();
+            if (timer == null) return;
+
+            if (_countdownHandle.IsValid) timer.CancelTimer(_countdownHandle);
+            if (_stopwatchHandle.IsValid) timer.CancelTimer(_stopwatchHandle);
+            if (_repeatingHandle.IsValid) timer.CancelTimer(_repeatingHandle);
         }
 
         private void Update()
         {
+            var timer = App.Get<Timer>();
             // Update displays
-            if (_countdownHandle.IsValid && Timer.IsRunning(_countdownHandle))
+            if (_countdownHandle.IsValid && timer.IsRunning(_countdownHandle))
             {
-                _countdownProgress = Timer.GetEasedProgress(_countdownHandle, EasingType.QuadOut);
+                _countdownProgress = timer.GetEasedProgress(_countdownHandle, EasingType.QuadOut);
             }
 
-            if (_stopwatchHandle.IsValid && Timer.IsRunning(_stopwatchHandle))
+            if (_stopwatchHandle.IsValid && timer.IsRunning(_stopwatchHandle))
             {
-                _stopwatchTime = Timer.GetCurrentTime(_stopwatchHandle);
+                _stopwatchTime = timer.GetCurrentTime(_stopwatchHandle);
             }
         }
 
         public void StartCountdown()
         {
-            if (_countdownHandle.IsValid) Timer.Cancel(_countdownHandle);
+            var timer = App.Get<Timer>();
+            if (_countdownHandle.IsValid) timer.CancelTimer(_countdownHandle);
 
-            _countdownHandle = Timer.Create<CountdownTimer>(countdownDuration);
-            Timer.On<OnTick, float>(_countdownHandle, (dt) => _countdownProgress = Timer.GetProgress(_countdownHandle));
-            Timer.On<OnComplete>(_countdownHandle, () => Debug.Log("<color=green>[COUNTDOWN]</color> Completed!"));
+            _countdownHandle = timer.CreateTimer<CountdownTimer>(countdownDuration);
+            timer.On<OnTick, float>(_countdownHandle, (dt) => _countdownProgress = timer.GetProgress(_countdownHandle));
+            timer.On<OnComplete>(_countdownHandle, () => Debug.Log("<color=green>[COUNTDOWN]</color> Completed!"));
 
             Debug.Log($"[COUNTDOWN] Started {countdownDuration}s countdown");
         }
 
         public void StartStopwatch()
         {
-            if (_stopwatchHandle.IsValid) Timer.Cancel(_stopwatchHandle);
+            var timer = App.Get<Timer>();
+            if (_stopwatchHandle.IsValid) timer.CancelTimer(_stopwatchHandle);
 
-            _stopwatchHandle = Timer.Create<StopwatchTimer>(0f);
+            _stopwatchHandle = timer.CreateTimer<StopwatchTimer>(0f);
             Debug.Log("[STOPWATCH] Started");
         }
 
         public void StopStopwatch()
         {
+            var timer = App.Get<Timer>();
             if (_stopwatchHandle.IsValid)
             {
-                Timer.Pause(_stopwatchHandle);
+                timer.Pause(_stopwatchHandle);
                 Debug.Log($"[STOPWATCH] Stopped at {_stopwatchTime:F2}s");
             }
         }
 
         public void StartRepeating()
         {
-            if (_repeatingHandle.IsValid) Timer.Cancel(_repeatingHandle);
+            var timer = App.Get<Timer>();
+            if (_repeatingHandle.IsValid) timer.CancelTimer(_repeatingHandle);
 
             _repeatCount = 0;
-            _repeatingHandle = Timer.Create<RepeatingTimer>(repeatInterval);
-            Timer.On<OnRepeat, int>(_repeatingHandle, (count) =>
+            _repeatingHandle = timer.CreateTimer<RepeatingTimer>(repeatInterval);
+            timer.On<OnRepeat, int>(_repeatingHandle, (count) =>
             {
                 _repeatCount = count;
                 Debug.Log($"<color=cyan>[REPEAT]</color> Tick #{count}");
@@ -95,12 +103,13 @@ namespace Eraflo.Catalyst.Samples.Timers
 
         public void SimpleDelay()
         {
-            Timer.Delay(delayDuration, () => Debug.Log($"<color=yellow>[DELAY]</color> Fired after {delayDuration}s!"));
+            App.Get<Timer>().CreateDelay(delayDuration, () => Debug.Log($"<color=yellow>[DELAY]</color> Fired after {delayDuration}s!"));
             Debug.Log($"[DELAY] Scheduled for {delayDuration}s");
         }
 
         private void OnGUI()
         {
+            var timer = App.Get<Timer>();
             GUILayout.BeginArea(new Rect(10, 10, 300, 350));
             GUILayout.Box("Timer Sample");
 
@@ -131,8 +140,8 @@ namespace Eraflo.Catalyst.Samples.Timers
             GUILayout.Space(10);
 
             // Metrics
-            var m = Timer.Metrics;
-            GUILayout.Label($"Active: {Timer.Count} | Created: {m.TotalCreated}");
+            var m = timer.Metrics;
+            GUILayout.Label($"Active: {timer.Count} | Created: {m.TotalCreated}");
 
             GUILayout.EndArea();
         }

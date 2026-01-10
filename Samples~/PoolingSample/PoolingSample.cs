@@ -33,7 +33,7 @@ namespace Eraflo.Catalyst.Samples.Pooling
 
         public void Warmup()
         {
-            Pool.Warmup(prefab, warmupCount);
+            App.Get<Pool>().WarmupObject(prefab, warmupCount);
             Debug.Log($"<color=cyan>[POOL]</color> Warmed up {warmupCount} objects");
         }
 
@@ -42,7 +42,7 @@ namespace Eraflo.Catalyst.Samples.Pooling
             var pos = transform.position + Random.insideUnitSphere * spawnRadius;
             pos.y = Mathf.Max(pos.y, 0.5f);
             
-            var handle = Pool.Spawn(prefab, pos);
+            var handle = App.Get<Pool>().SpawnObject(prefab, pos);
             Debug.Log($"<color=green>[POOL]</color> Spawned at {pos}");
         }
 
@@ -51,29 +51,31 @@ namespace Eraflo.Catalyst.Samples.Pooling
             var pos = transform.position + Random.insideUnitSphere * spawnRadius;
             pos.y = Mathf.Max(pos.y, 0.5f);
             
-            Pool.SpawnTimed(prefab, pos, timedSpawnDuration);
+            App.Get<Pool>().SpawnObjectTimed(prefab, pos, timedSpawnDuration);
             Debug.Log($"<color=yellow>[POOL]</color> Spawned timed ({timedSpawnDuration}s) at {pos}");
         }
 
         public void SpawnBurst()
         {
+            var pool = App.Get<Pool>();
             for (int i = 0; i < 10; i++)
             {
                 var pos = transform.position + Random.insideUnitSphere * spawnRadius;
                 pos.y = Mathf.Max(pos.y, 0.5f);
-                Pool.SpawnTimed(prefab, pos, Random.Range(1f, 3f));
+                pool.SpawnObjectTimed(prefab, pos, Random.Range(1f, 3f));
             }
             Debug.Log("<color=magenta>[POOL]</color> Spawned burst of 10 objects");
         }
 
         public void DespawnAll()
         {
-            Pool.Clear(prefab);
+            App.Get<Pool>().ClearObject(prefab);
             Debug.Log("<color=red>[POOL]</color> Cleared pool");
         }
 
         private void OnGUI()
         {
+            var pool = App.Get<Pool>();
             GUILayout.BeginArea(new Rect(10, 10, 250, 300));
             GUILayout.Box("Pooling Sample");
 
@@ -89,7 +91,7 @@ namespace Eraflo.Catalyst.Samples.Pooling
             GUILayout.Space(10);
 
             // Metrics
-            var m = Pool.Metrics;
+            var m = pool.Metrics;
             GUILayout.Label($"Spawned: {m.TotalSpawned}");
             GUILayout.Label($"Despawned: {m.TotalDespawned}");
             GUILayout.Label($"Active: {m.ActiveCount}");

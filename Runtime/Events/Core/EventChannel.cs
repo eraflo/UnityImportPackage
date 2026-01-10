@@ -22,7 +22,7 @@ namespace Eraflo.Catalyst.Events
         /// </summary>
         public void Raise()
         {
-            EventBus.Raise(this);
+            App.Get<EventBus>()?.Raise(this);
         }
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to invoke when the event is raised.</param>
         public void Subscribe(Action callback)
         {
-            EventBus.Subscribe(this, callback);
+            App.Get<EventBus>()?.Subscribe(this, callback);
         }
 
         /// <summary>
@@ -40,13 +40,13 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to remove.</param>
         public void Unsubscribe(Action callback)
         {
-            EventBus.Unsubscribe(this, callback);
+            App.Get<EventBus>()?.Unsubscribe(this, callback);
         }
 
         /// <summary>
         /// Gets the number of current subscribers.
         /// </summary>
-        public int SubscriberCount => EventBus.GetSubscriberCount(this);
+        public int SubscriberCount => App.Get<EventBus>()?.GetSubscriberCount(this) ?? 0;
     }
 
     /// <summary>
@@ -71,7 +71,7 @@ namespace Eraflo.Catalyst.Events
         /// <param name="value">The value to pass to subscribers.</param>
         public void Raise(T value)
         {
-            EventBus.Raise(this, value);
+            App.Get<EventBus>()?.Raise(this, value);
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to invoke when the event is raised.</param>
         public void Subscribe(Action<T> callback)
         {
-            EventBus.Subscribe(this, callback);
+            App.Get<EventBus>()?.Subscribe(this, callback);
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to invoke when the event is raised.</param>
         public void Subscribe(Action callback)
         {
-            EventBus.Subscribe(this, callback);
+            App.Get<EventBus>()?.Subscribe(this, callback);
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to remove.</param>
         public void Unsubscribe(Action<T> callback)
         {
-            EventBus.Unsubscribe(this, callback);
+            App.Get<EventBus>()?.Unsubscribe(this, callback);
         }
 
         /// <summary>
@@ -115,12 +115,12 @@ namespace Eraflo.Catalyst.Events
         /// <param name="callback">The callback to remove.</param>
         public void Unsubscribe(Action callback)
         {
-            EventBus.Unsubscribe(this, callback);
+            App.Get<EventBus>()?.Unsubscribe(this, callback);
         }
 
         /// <summary>
         /// Gets the number of current subscribers.
         /// </summary>
-        public int SubscriberCount => EventBus.GetSubscriberCount(this);
+        public int SubscriberCount => App.Get<EventBus>()?.GetSubscriberCount(this) ?? 0;
     }
 }

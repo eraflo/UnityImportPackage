@@ -14,7 +14,7 @@ namespace Eraflo.Catalyst.Timers
         public int TotalCreated { get; private set; }
         
         /// <summary>Current number of active timers.</summary>
-        public int ActiveCount => Timer.Count;
+        public int ActiveCount => App.Get<Timer>().Count;
         
         /// <summary>Total number of timers that completed naturally.</summary>
         public int TotalCompleted { get; private set; }

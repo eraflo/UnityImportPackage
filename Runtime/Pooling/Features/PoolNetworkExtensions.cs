@@ -15,8 +15,8 @@ namespace Eraflo.Catalyst.Pooling
             GameObject prefab, Vector3 position, Quaternion rotation = default, 
             bool serverAuth = true, NetworkTarget target = NetworkTarget.Clients)
         {
-            var handle = Pool.Spawn(prefab, position, rotation);
-            var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+            var handle = App.Get<Pool>()?.SpawnObject(prefab, position, rotation) ?? PoolHandle<GameObject>.None;
+            var handler = App.Get<NetworkManager>()?.Handlers.Get<PoolNetworkHandler>();
             
             if (handler == null) return (handle, 0);
             
@@ -31,7 +31,7 @@ namespace Eraflo.Catalyst.Pooling
         /// </summary>
         public static PoolHandle<GameObject> SpawnLocal(GameObject prefab, Vector3 position, Quaternion rotation = default)
         {
-            return Pool.Spawn(prefab, position, rotation);
+            return App.Get<Pool>()?.SpawnObject(prefab, position, rotation) ?? PoolHandle<GameObject>.None;
         }
 
         /// <summary>
@@ -39,9 +39,9 @@ namespace Eraflo.Catalyst.Pooling
         /// </summary>
         public static void DespawnNetworked(this PoolHandle<GameObject> handle, NetworkTarget target = NetworkTarget.Clients)
         {
-            var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+            var handler = App.Get<NetworkManager>()?.Handlers.Get<PoolNetworkHandler>();
             handler?.BroadcastDespawn(handle, target);
-            Pool.Despawn(handle);
+            App.Get<Pool>()?.DespawnObject(handle);
         }
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace Eraflo.Catalyst.Pooling
         /// </summary>
         public static uint RegisterNetworked(this PoolHandle<GameObject> handle, bool serverAuth = true)
         {
-            var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+            var handler = App.Get<NetworkManager>()?.Handlers.Get<PoolNetworkHandler>();
             return handler?.Register(handle, serverAuth) ?? 0;
         }
 
@@ -58,7 +58,7 @@ namespace Eraflo.Catalyst.Pooling
         /// </summary>
         public static void UnregisterNetworked(this PoolHandle<GameObject> handle)
         {
-            var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+            var handler = App.Get<NetworkManager>()?.Handlers.Get<PoolNetworkHandler>();
             handler?.Unregister(handle);
         }
 
@@ -67,7 +67,7 @@ namespace Eraflo.Catalyst.Pooling
         /// </summary>
         public static uint GetNetworkId(this PoolHandle<GameObject> handle)
         {
-            var handler = NetworkManager.Handlers.Get<PoolNetworkHandler>();
+            var handler = App.Get<NetworkManager>()?.Handlers.Get<PoolNetworkHandler>();
             return handler?.GetId(handle) ?? 0;
         }
     }

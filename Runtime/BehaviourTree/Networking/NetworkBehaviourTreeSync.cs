@@ -37,8 +37,9 @@ namespace Eraflo.Catalyst.BehaviourTree
             // Register network message handlers
             if (!_isRegistered)
             {
-                NetworkManager.On<BlackboardSyncMessage>(OnBlackboardSync);
-                NetworkManager.On<TreeStateMessage>(OnTreeStateSync);
+                var network = App.Get<NetworkManager>();
+                network.On<BlackboardSyncMessage>(OnBlackboardSync);
+                network.On<TreeStateMessage>(OnTreeStateSync);
                 _isRegistered = true;
             }
         }
@@ -47,24 +48,26 @@ namespace Eraflo.Catalyst.BehaviourTree
         {
             if (_isRegistered)
             {
-                NetworkManager.Off<BlackboardSyncMessage>(OnBlackboardSync);
-                NetworkManager.Off<TreeStateMessage>(OnTreeStateSync);
+                var network = App.Get<NetworkManager>();
+                network.Off<BlackboardSyncMessage>(OnBlackboardSync);
+                network.Off<TreeStateMessage>(OnTreeStateSync);
                 _isRegistered = false;
             }
         }
         
         private void Update()
         {
-            if (!NetworkManager.IsConnected) return;
+            if (!App.Get<NetworkManager>().IsConnected) return;
             
             // Only server/host evaluates in authoritative mode
-            if (ServerAuthoritative && !NetworkManager.IsServer)
+            var network = App.Get<NetworkManager>();
+            if (ServerAuthoritative && !network.IsServer)
             {
                 return;
             }
             
             // Sync blackboard periodically
-            if (NetworkManager.IsServer && Time.time - _lastSyncTime >= BlackboardSyncInterval)
+            if (network.IsServer && Time.time - _lastSyncTime >= BlackboardSyncInterval)
             {
                 _lastSyncTime = Time.time;
                 SyncBlackboardToClients();
@@ -76,7 +79,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         /// </summary>
         public void SyncBlackboardInt(string key, int value)
         {
-            if (!NetworkManager.IsServer) return;
+            if (!App.Get<NetworkManager>().IsServer) return;
             
             var msg = new BlackboardSyncMessage
             {
@@ -85,7 +88,7 @@ namespace Eraflo.Catalyst.BehaviourTree
                 IntValue = value
             };
             
-            NetworkManager.SendToClients(msg);
+            App.Get<NetworkManager>().SendToClients(msg);
         }
         
         /// <summary>
@@ -93,14 +96,14 @@ namespace Eraflo.Catalyst.BehaviourTree
         /// </summary>
         public void SyncTreeState(NodeState state)
         {
-            if (!NetworkManager.IsServer) return;
+            if (!App.Get<NetworkManager>().IsServer) return;
             
             var msg = new TreeStateMessage
             {
                 State = (int)state
             };
             
-            NetworkManager.SendToClients(msg);
+            App.Get<NetworkManager>().SendToClients(msg);
         }
         
         private void SyncBlackboardToClients()
@@ -120,7 +123,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         private void OnBlackboardSync(BlackboardSyncMessage msg)
         {
             // Clients apply received values
-            if (NetworkManager.IsServer) return;
+            if (App.Get<NetworkManager>().IsServer) return;
             
             switch (msg.ValueType)
             {
@@ -138,7 +141,7 @@ namespace Eraflo.Catalyst.BehaviourTree
         
         private void OnTreeStateSync(TreeStateMessage msg)
         {
-            if (NetworkManager.IsServer) return;
+            if (App.Get<NetworkManager>().IsServer) return;
             
             Debug.Log($"[NetworkBT] Tree state: {(NodeState)msg.State}");
         }

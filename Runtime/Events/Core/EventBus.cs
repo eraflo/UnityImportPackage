@@ -1,27 +1,45 @@
 using System;
 using System.Collections.Generic;
+using Eraflo.Catalyst;
 
 namespace Eraflo.Catalyst.Events
 {
     /// <summary>
     /// Central event bus managing all event subscriptions.
+    /// Can be used as a service via Service Locator.
     /// Thread-safe and async-safe implementation.
     /// </summary>
-    public static class EventBus
+    [Service(Priority = -10)] // High priority for events
+    public class EventBus : IGameService
     {
-        private static readonly object Lock = new object();
+        private readonly object Lock = new object();
         
         // Stores callbacks per channel instance
-        private static readonly Dictionary<object, List<Delegate>> ChannelCallbacks = 
+        private readonly Dictionary<object, List<Delegate>> ChannelCallbacks = 
             new Dictionary<object, List<Delegate>>();
+
+
+        #region IGameService
+
+        void IGameService.Initialize()
+        {
+            // Initialization logic if needed
+        }
+
+        void IGameService.Shutdown()
+        {
+            ClearAll();
+        }
+
+        #endregion
+
+
+        #region Instance Methods
 
         /// <summary>
         /// Subscribes a callback to a specific event channel.
         /// </summary>
-        /// <typeparam name="T">The type of value the channel carries.</typeparam>
-        /// <param name="channel">The event channel to subscribe to.</param>
-        /// <param name="callback">The callback to invoke when the event is raised.</param>
-        public static void Subscribe<T>(EventChannel<T> channel, Action<T> callback)
+        public void Subscribe<T>(EventChannel<T> channel, Action<T> callback)
         {
             if (channel == null || callback == null) return;
             
@@ -43,7 +61,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Subscribes a callback (no args) to a specific event channel.
         /// </summary>
-        public static void Subscribe<T>(EventChannel<T> channel, Action callback)
+        public void Subscribe<T>(EventChannel<T> channel, Action callback)
         {
             if (channel == null || callback == null) return;
             
@@ -65,7 +83,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Subscribes a callback to a void event channel.
         /// </summary>
-        public static void Subscribe(EventChannel channel, Action callback)
+        public void Subscribe(EventChannel channel, Action callback)
         {
             if (channel == null || callback == null) return;
             
@@ -87,7 +105,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Unsubscribes a callback from a specific event channel.
         /// </summary>
-        public static void Unsubscribe<T>(EventChannel<T> channel, Action<T> callback)
+        public void Unsubscribe<T>(EventChannel<T> channel, Action<T> callback)
         {
             if (channel == null || callback == null) return;
             
@@ -108,7 +126,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Unsubscribes a callback (no args) from a specific event channel.
         /// </summary>
-        public static void Unsubscribe<T>(EventChannel<T> channel, Action callback)
+        public void Unsubscribe<T>(EventChannel<T> channel, Action callback)
         {
             if (channel == null || callback == null) return;
             
@@ -129,7 +147,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Unsubscribes a callback from a void event channel.
         /// </summary>
-        public static void Unsubscribe(EventChannel channel, Action callback)
+        public void Unsubscribe(EventChannel channel, Action callback)
         {
             if (channel == null || callback == null) return;
             
@@ -150,7 +168,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Raises an event on a typed channel.
         /// </summary>
-        internal static void Raise<T>(EventChannel<T> channel, T value)
+        internal void Raise<T>(EventChannel<T> channel, T value)
         {
             if (channel == null) return;
             
@@ -190,7 +208,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Raises an event on a void channel.
         /// </summary>
-        internal static void Raise(EventChannel channel)
+        internal void Raise(EventChannel channel)
         {
             if (channel == null) return;
             
@@ -225,7 +243,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Gets the number of subscribers for a channel.
         /// </summary>
-        public static int GetSubscriberCount(object channel)
+        public int GetSubscriberCount(object channel)
         {
             if (channel == null) return 0;
             
@@ -238,7 +256,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Clears all subscriptions. Useful for scene transitions.
         /// </summary>
-        public static void ClearAll()
+        public void ClearAll()
         {
             lock (Lock)
             {
@@ -249,7 +267,7 @@ namespace Eraflo.Catalyst.Events
         /// <summary>
         /// Clears subscriptions for a specific channel.
         /// </summary>
-        public static void Clear(object channel)
+        public void Clear(object channel)
         {
             if (channel == null) return;
             
@@ -258,5 +276,10 @@ namespace Eraflo.Catalyst.Events
                 ChannelCallbacks.Remove(channel);
             }
         }
+
+        /// <summary>Alias for ClearAll.</summary>
+        public void Clear() => ClearAll();
+
+        #endregion
     }
 }

@@ -3,6 +3,8 @@ using UnityEngine;
 
 namespace Eraflo.Catalyst.Networking.Backends
 {
+    using Eraflo.Catalyst.Networking;
+
     /// <summary>
     /// Factory for Netcode backend.
     /// </summary>
@@ -17,7 +19,8 @@ namespace Eraflo.Catalyst.Networking.Backends
             // If NetworkManager.Singleton exists, initialize immediately
             if (Unity.Netcode.NetworkManager.Singleton != null)
             {
-                return NetworkManager.SetBackendById("netcode");
+                App.Get<NetworkManager>().SetBackendById("netcode");
+                return true;
             }
 
             // Otherwise, defer initialization
@@ -42,7 +45,7 @@ namespace Eraflo.Catalyst.Networking.Backends
         {
             if (Unity.Netcode.NetworkManager.Singleton != null)
             {
-                NetworkManager.SetBackendById("netcode");
+                App.Get<NetworkManager>().SetBackendById("netcode");
                 Destroy(gameObject);
             }
         }

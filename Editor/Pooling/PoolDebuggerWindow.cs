@@ -41,7 +41,7 @@ namespace Eraflo.Catalyst.Editor.Pooling
             if (EditorApplication.timeSinceStartup - _lastRefreshTime > REFRESH_INTERVAL)
             {
                 _lastRefreshTime = EditorApplication.timeSinceStartup;
-                _cachedPools = Pool.GetPoolDebugInfo();
+                _cachedPools = App.Get<Pool>()?.GetDebugInfo() ?? new List<PoolDebugInfo>();
                 Repaint();
             }
         }
@@ -72,13 +72,13 @@ namespace Eraflo.Catalyst.Editor.Pooling
             {
                 if (GUILayout.Button("Clear All", EditorStyles.toolbarButton))
                 {
-                    Pool.ClearAll();
+                    App.Get<Pool>()?.ClearAllPools();
                     _cachedPools.Clear();
                 }
 
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton))
                 {
-                    _cachedPools = Pool.GetPoolDebugInfo();
+                    _cachedPools = App.Get<Pool>()?.GetDebugInfo() ?? new List<PoolDebugInfo>();
                 }
             }
 
@@ -87,7 +87,8 @@ namespace Eraflo.Catalyst.Editor.Pooling
 
         private void DrawMetrics()
         {
-            var metrics = Pool.Metrics;
+            var metrics = App.Get<Pool>()?.Metrics;
+            if (metrics == null) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.LabelField("Pool Metrics", EditorStyles.boldLabel);
