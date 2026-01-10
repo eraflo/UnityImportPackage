@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using Eraflo.Catalyst.BehaviourTree;
 using Eraflo.Catalyst.Editor.BehaviourTree.Window;
+using Eraflo.Catalyst.Core.Blackboard;
 
 namespace Eraflo.Catalyst.Editor.BehaviourTree
 {
@@ -45,7 +46,7 @@ namespace Eraflo.Catalyst.Editor.BehaviourTree
                     EditorGUILayout.LabelField("Blackboard (Runtime Values)", EditorStyles.boldLabel);
                     
                     var keys = runner.Blackboard.GetAllKeys();
-                    if (keys.Length == 0)
+                    if (keys.Count == 0)
                     {
                         EditorGUILayout.LabelField("(empty)");
                     }

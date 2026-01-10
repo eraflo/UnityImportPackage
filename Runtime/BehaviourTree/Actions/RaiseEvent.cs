@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using UnityEngine;
+using Eraflo.Catalyst.Core.Blackboard;
 using Eraflo.Catalyst.Events;
 
 namespace Eraflo.Catalyst.BehaviourTree

@@ -22,7 +22,24 @@ using Eraflo.Catalyst;
 
 ## API Reference
 
-*Documentation will be added as features are implemented.*
+### Core Systems
+- [Service Locator](Core/ServiceLocator.md) - The architectural backbone.
+- [Blackboard](Core/Blackboard.md) - Hierarchical data sharing and persistence.
+- [Event Bus](Core/EventBus.md) - Decoupled messaging.
+- [Timers](Core/Timers.md) - Scalable timer and delay system.
+- [Pooling](Core/Pooling.md) - High-performance object reuse.
+- [Easing](Core/Easing.md) - Math utilities for smooth transitions.
+
+### Modules
+- [Behaviour Tree](Modules/BehaviourTree.md) - Advanced AI and logic sequencing.
+- [Networking](Modules/Networking.md) - Netcode for GameObjects integration.
+
+### Persistence & Data
+- [Serializer](Persistence/Serializer.md) - Unified JSON serialization system.
+
+### Infrastructure
+- [CI/CD](Infrastructure/CICD.md) - Automated testing and deployment.
+- [Package Settings](Infrastructure/PackageSettings.md) - Configuration and project setup.
 
 ## Changelog
 

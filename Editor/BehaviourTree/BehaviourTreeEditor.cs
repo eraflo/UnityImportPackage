@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using Eraflo.Catalyst.BehaviourTree;
 using Eraflo.Catalyst.Editor.BehaviourTree.Window;
+using Eraflo.Catalyst.Core.Blackboard;
 using BTNode = Eraflo.Catalyst.BehaviourTree.Node;
 
 namespace Eraflo.Catalyst.Editor.BehaviourTree
