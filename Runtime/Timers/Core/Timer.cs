@@ -207,10 +207,15 @@ namespace Eraflo.Catalyst.Timers
         /// <param name="presetName">Name of the preset to use.</param>
         /// <param name="onComplete">Callback when timer completes.</param>
         /// <returns>Timer handle, or None if preset not found.</returns>
-
-        /// <summary>
-        /// Gets the easing type associated with a preset.
-        /// </summary>
+        public TimerHandle CreateFromPreset(string presetName, Action onComplete)
+        {
+            var handle = CreateFromPreset(presetName);
+            if (handle.IsValid)
+            {
+                TimerCallbacks.Register<OnComplete>(handle, onComplete);
+            }
+            return handle;
+        }
 
         #endregion
     }

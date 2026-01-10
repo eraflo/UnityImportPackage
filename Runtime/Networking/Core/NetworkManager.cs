@@ -74,15 +74,16 @@ namespace Eraflo.Catalyst.Networking
 
         #region Instance Methods
 
-        public void SetBackendById(string id)
+        public bool SetBackendById(string id)
         {
             var backend = _backends.Create(id);
             if (backend == null)
             {
                 Debug.LogWarning($"[NetworkManager] Backend not found: {id}");
-                return;
+                return false;
             }
             SetBackend(backend);
+            return true;
         }
 
         public void SetBackend(INetworkBackend backend)

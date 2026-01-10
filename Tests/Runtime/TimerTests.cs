@@ -69,6 +69,7 @@ namespace Eraflo.Catalyst.Tests
             var handle = App.Get<Timer>().CreateDelay(1f, () => called = true);
             
             Assert.IsTrue(handle.IsValid);
+            Assert.IsFalse(called);
             Assert.AreEqual(1, App.Get<Timer>().Count);
         }
 
@@ -584,6 +585,7 @@ namespace Eraflo.Catalyst.Tests
             var handle = App.Get<Timer>().CreateFromPreset("TestWithCallback", () => called = true);
             
             Assert.IsTrue(handle.IsValid);
+            Assert.IsFalse(called);
             // Callback registration is tested by checking handle is valid
         }
 
