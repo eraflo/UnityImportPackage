@@ -42,7 +42,20 @@ Custom backends: Register via `NetworkBackendRegistry.Register()`.
 | **Use Burst Timers** | `bool` | `false` | Optimized backend |
 | **Enable Timer Debug Logs** | `bool` | `false` | Log timer events |
 | **Enable Debug Overlay** | `bool` | `false` | Show overlay |
-
+ 
+### Assets
+ 
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| **Asset Provider Type** | `AssetProviderType` | `Resources` | Backend for asset loading (`Resources` or `Addressables`) |
+ 
+### Scene Flow
+ 
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| **On Transition Started** | `SceneTransitionChannel` | `null` | Global channel for transition start events |
+| **On Transition Completed** | `SceneTransitionChannel` | `null` | Global channel for transition completion events |
+ 
 ## Runtime Initialization
 
 At startup, `NetworkBootstrapper`:

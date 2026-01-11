@@ -31,6 +31,8 @@ using Eraflo.Catalyst;
 - [Easing](Core/Easing.md) - Math utilities for smooth transitions.
 
 ### Modules
+- [Scene Flow](Modules/SceneFlow.md) - Complex transition management.
+- [Asset Management](Modules/AssetManagement.md) - Reference-counted loading.
 - [Behaviour Tree](Modules/BehaviourTree.md) - Advanced AI and logic sequencing.
 - [Networking](Modules/Networking.md) - Netcode for GameObjects integration.
 

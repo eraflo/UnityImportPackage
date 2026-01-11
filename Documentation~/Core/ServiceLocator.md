@@ -107,6 +107,8 @@ To maintain consistency, follow these priority brackets when adding new services
 | `BlackboardManager` | 5 | Core |
 | `Pool` | 10 | Infrastructure |
 | `SaveManager` | 10 | Infrastructure |
+| `SceneLoaderService` | 10 | Infrastructure |
+| `AssetManager` | 20 | Infrastructure |
 | `NetworkManager` | 20 | Infrastructure |
 | `LogExporter` | 100 | Auxiliary |
 
@@ -148,4 +150,43 @@ For convenience, core modules like `Timer`, `Pool`, and `EventBus` provide stati
 // Both are equivalent
 Pool.Get<MyObject>();
 App.Get<Pool>().Get<MyObject>();
+```
+
+## Testing & Mocks
+
+Since the `ServiceLocator` uses private discovery and doesn't allow manual registration of instances at runtime (to maintain a strict lifecycle), the recommended pattern for unit testing is **Dependency Injection (Setter Injection)**.
+
+### Pattern: Setter Injection
+
+Design your service to accept its dependencies via setter methods. This allows your unit tests to inject mock implementations directly into the service instance without touching the `ServiceLocator`.
+
+```csharp
+public class MyService : IGameService {
+    private IOtherService _dependency;
+
+    // Standard constructor or field
+    public void Initialize() {
+        if (_dependency == null) _dependency = App.Get<IOtherService>();
+    }
+
+    // Injection point for tests
+    public void SetDependency(IOtherService dependency) {
+        _dependency = dependency;
+    }
+}
+```
+
+### In Your Tests
+
+```csharp
+[SetUp]
+public void SetUp() {
+    var service = new MyService();
+    var mock = new MockDependency();
+    
+    // Inject mock directly
+    service.SetDependency(mock);
+    
+    ((IGameService)service).Initialize();
+}
 ```
