@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Eraflo.Catalyst.Events;
 using UnityEngine;
 
 namespace Eraflo.Catalyst
@@ -48,6 +49,10 @@ namespace Eraflo.Catalyst
         // Assets
         [SerializeField] private AssetProviderType _assetProviderType = AssetProviderType.Resources;
 
+        // Scene Flow
+        [SerializeField] private SceneTransitionChannel _onTransitionStarted;
+        [SerializeField] private SceneTransitionChannel _onTransitionCompleted;
+
         public static PackageSettings Instance
         {
             get
@@ -75,6 +80,8 @@ namespace Eraflo.Catalyst
         public bool EnableTimerDebugLogs => _enableTimerDebugLogs;
         public bool EnableDebugOverlay => _enableDebugOverlay;
         public AssetProviderType AssetProviderType => _assetProviderType;
+        public SceneTransitionChannel OnTransitionStarted => _onTransitionStarted;
+        public SceneTransitionChannel OnTransitionCompleted => _onTransitionCompleted;
 
         public static void Reload() { _instance = null; _ = Instance; }
     }
